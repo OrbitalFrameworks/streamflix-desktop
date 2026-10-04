@@ -246,7 +246,9 @@ final class MpvPlayer {
                 .filter(s -> s != null && s.file() != null && !s.file().isBlank())
                 .sorted(Comparator.comparingInt((Models.Subtitle s) ->
                                 MediaLanguage.rank(null, s.label(), preferred))
-                        .thenComparingInt(s -> s.isDefault() ? 0 : 1))
+                        .thenComparingInt(s -> s.isDefault() ? 0 : 1)
+                        .thenComparing(s -> s.label() == null ? "" : s.label(), String.CASE_INSENSITIVE_ORDER)
+                        .thenComparing(Models.Subtitle::file))
                 .toList();
     }
 

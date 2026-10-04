@@ -133,7 +133,39 @@ final class MainFrame extends JFrame {
         JLabel logo = new JLabel("STREAMFLIX");
         logo.setForeground(Theme.ACCENT);
         logo.setFont(Theme.FONT_DISPLAY.deriveFont(20f));
-        logo.setBorder(new EmptyBorder(0, 0, 0, 12));
+        javax.swing.border.Border logoPadding = new EmptyBorder(0, 0, 0, 10);
+        logo.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(0, 0, 0, 0)), logoPadding));
+        logo.setFocusable(true);
+        logo.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        logo.setToolTipText("Ir a Inicio");
+        logo.getAccessibleContext().setAccessibleName("STREAMFLIX, ir a Inicio");
+        Action goHome = new AbstractAction() {
+            @Override public void actionPerformed(ActionEvent event) {
+                switchMode(Mode.HOME);
+            }
+        };
+        logo.getInputMap(JComponent.WHEN_FOCUSED).put(
+                KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "goHome");
+        logo.getInputMap(JComponent.WHEN_FOCUSED).put(
+                KeyStroke.getKeyStroke(KeyEvent.VK_SPACE, 0), "goHome");
+        logo.getActionMap().put("goHome", goHome);
+        logo.addMouseListener(new MouseAdapter() {
+            @Override public void mouseClicked(MouseEvent event) {
+                if (SwingUtilities.isLeftMouseButton(event)) goHome.actionPerformed(null);
+            }
+        });
+        logo.addFocusListener(new FocusAdapter() {
+            @Override public void focusGained(FocusEvent event) {
+                logo.setBorder(BorderFactory.createCompoundBorder(
+                        BorderFactory.createLineBorder(Theme.FOCUS), logoPadding));
+            }
+
+            @Override public void focusLost(FocusEvent event) {
+                logo.setBorder(BorderFactory.createCompoundBorder(
+                        BorderFactory.createLineBorder(new Color(0, 0, 0, 0)), logoPadding));
+            }
+        });
         left.add(logo);
 
         for (JButton button : List.of(homeButton, moviesButton, seriesButton, liveButton, favoritesButton)) {
@@ -502,10 +534,8 @@ final class MainFrame extends JFrame {
             homeRoot.add(Box.createVerticalStrut(10));
         }
 
-        if (!data.history().isEmpty()) {
-            homeRoot.add(continueWatchingSection(data.history()));
-            homeRoot.add(Box.createVerticalStrut(30));
-        }
+        homeRoot.add(continueWatchingSection(data.history()));
+        homeRoot.add(Box.createVerticalStrut(30));
 
         if (!data.movies().isEmpty()) {
             homeRoot.add(homeSection(
@@ -569,6 +599,18 @@ final class MainFrame extends JFrame {
         heading.add(Box.createVerticalStrut(3));
         heading.add(sub);
         section.add(heading, BorderLayout.NORTH);
+
+        if (items.isEmpty()) {
+            JPanel empty = new JPanel(new BorderLayout());
+            empty.setBackground(Theme.PANEL);
+            empty.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(Theme.BORDER), new EmptyBorder(16, 18, 16, 18)));
+            JLabel message = Theme.muted("Aún no tienes nada pendiente. Reproduce un título para retomarlo aquí.");
+            empty.add(message, BorderLayout.WEST);
+            section.add(empty, BorderLayout.CENTER);
+            section.setMaximumSize(new Dimension(Integer.MAX_VALUE, 126));
+            return section;
+        }
 
         int count = Math.min(8, items.size());
         int columns = Math.max(1, Math.min(4, count));
@@ -738,7 +780,7 @@ final class MainFrame extends JFrame {
     private void renderHomeError(Throwable error) {
         homeRoot.removeAll();
         homeRoot.add(stateCard("No pudimos preparar el inicio",
-                error.getMessage() == null ? "Reintenta en unos segundos." : error.getMessage(),
+                "Comprueba tu conexión e inténtalo de nuevo. Las demás secciones siguen disponibles.",
                 "Reintentar", this::loadHome));
         homeRoot.revalidate();
         homeRoot.repaint();
@@ -912,7 +954,7 @@ final class MainFrame extends JFrame {
 
     private void renderError(Throwable error) {
         renderGridState("No se pudo cargar",
-                error.getMessage() == null ? "Revisa tu conexión e inténtalo de nuevo." : error.getMessage(),
+                "Revisa tu conexión e inténtalo de nuevo. No necesitas cerrar ni reiniciar la aplicación.",
                 "Reintentar", () -> loadPage(false));
     }
 
@@ -1003,6 +1045,10 @@ final class MainFrame extends JFrame {
         Provider itemProvider = item.sourceProviderId() == null ? null : ProviderRegistry.get(item.sourceProviderId());
         if (itemProvider == null) itemProvider = provider;
 
+        // Establish the detail route before mutating the catalog header. This keeps
+        // the card activation gesture independent from filter visibility updates.
+        detailOpen = true;
+        ((CardLayout) contentStack.getLayout()).show(contentStack, "DETAIL");
         detailHost.removeAll();
         detailHost.add(new TitleDetailView(
                 this,
@@ -1010,14 +1056,13 @@ final class MainFrame extends JFrame {
                 item,
                 this::closeDetails,
                 autoPlay,
-                () -> homeNeedsRefresh = true
+                () -> homeNeedsRefresh = true,
+                this::openDetails
         ), BorderLayout.CENTER);
         detailHost.revalidate();
         detailHost.repaint();
 
-        detailOpen = true;
         sectionHeaderPanel.setVisible(false);
-        ((CardLayout) contentStack.getLayout()).show(contentStack, "DETAIL");
     }
 
     private void closeDetails() {

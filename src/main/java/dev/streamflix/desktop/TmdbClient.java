@@ -36,7 +36,7 @@ final class TmdbClient {
     }
 
     Map<String, Object> get(String path, Map<String, String> parameters) throws IOException, InterruptedException {
-        if (!path.matches("(?:discover/(?:movie|tv)|search/(?:multi|movie|tv)|movie/[1-9][0-9]*|tv/[1-9][0-9]*(?:/season/[0-9]+)?)")) {
+        if (!path.matches("(?:discover/(?:movie|tv)|search/(?:multi|movie|tv)|movie/[1-9][0-9]*(?:/recommendations)?|tv/[1-9][0-9]*(?:/(?:recommendations|season/[0-9]+))?)")) {
             throw new TmdbException("Invalid metadata request.");
         }
         String key = keys.get();

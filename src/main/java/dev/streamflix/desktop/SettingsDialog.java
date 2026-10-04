@@ -511,7 +511,7 @@ final class SettingsDialog extends JDialog {
             }
         } catch (TmdbException ex) {
             status.setForeground(Theme.DANGER);
-            status.setText(ex.getMessage());
+            status.setText("No pudimos leer la configuración local de TMDb. Puedes volver a guardarla.");
         }
     }
 
@@ -541,12 +541,12 @@ final class SettingsDialog extends JDialog {
                 setTesting(false);
                 try {
                     get();
-                    status.setForeground(new Color(104, 211, 145));
+                    status.setForeground(Theme.SUCCESS);
                     status.setText("Conexión correcta. Esta credencial puede usar TMDb ES y EN.");
                 } catch (Exception ex) {
                     Throwable cause = ex.getCause() == null ? ex : ex.getCause();
                     status.setForeground(Theme.DANGER);
-                    status.setText(cause.getMessage() == null ? "TMDb rechazó la credencial." : cause.getMessage());
+                    status.setText("No pudimos validar la credencial. Revisa el valor e inténtalo de nuevo.");
                 }
             }
         }.execute();
@@ -583,14 +583,14 @@ final class SettingsDialog extends JDialog {
                         default -> "auto";
                     }
             );
-            status.setForeground(new Color(104, 211, 145));
+            status.setForeground(Theme.SUCCESS);
             status.setText(TmdbSettings.environmentOverrideActive()
                     ? "Guardada. La variable de entorno seguirá teniendo prioridad."
                     : "Configuración guardada.");
             dispose();
         } catch (TmdbException ex) {
             status.setForeground(Theme.DANGER);
-            status.setText(ex.getMessage());
+            status.setText("No pudimos guardar la configuración. Revisa los campos e inténtalo de nuevo.");
         } finally {
             Arrays.fill(chars, '\0');
         }

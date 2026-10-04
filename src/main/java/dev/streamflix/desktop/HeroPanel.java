@@ -125,9 +125,10 @@ final class HeroPanel extends JLayeredPane {
         backdrop.setBounds(0, 0, w, h);
         shade.setBounds(0, 0, w, h);
 
-        int cw = Math.min(620, Math.max(460, w / 2));
-        int ch = Math.min(350, h - 70);
-        copy.setBounds(38, Math.max(34, h - ch - 38), cw, ch);
+        int horizontalInset = Math.min(38, Math.max(18, w / 18));
+        int cw = Math.min(620, Math.max(0, Math.min(w - horizontalInset * 2, w * 3 / 5)));
+        int ch = Math.min(350, Math.max(0, h - 70));
+        copy.setBounds(horizontalInset, Math.max(24, h - ch - 30), cw, ch);
     }
 
     private static String shorten(String value, int max) {

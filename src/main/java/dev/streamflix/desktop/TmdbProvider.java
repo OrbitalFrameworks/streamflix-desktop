@@ -12,6 +12,8 @@ final class TmdbProvider implements Provider {
     private final TmdbClient client;
     private final java.util.concurrent.ConcurrentHashMap<String, Models.ShowItem> detailCache =
             new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.concurrent.ConcurrentHashMap<String, List<Models.ShowItem>> recommendationCache =
+            new java.util.concurrent.ConcurrentHashMap<>();
 
     TmdbProvider(String language) { this(new TmdbClient(language)); }
     TmdbProvider(TmdbClient client) { this.client = client; }
@@ -79,6 +81,32 @@ final class TmdbProvider implements Provider {
             return apiResults;
         }
         return mergeTvPrefixResults(query, apiResults);
+    }
+
+    List<Models.ShowItem> recommendations(Models.ShowItem show) throws Exception {
+        if (show == null) return List.of();
+        String mediaType = show.type() == Models.ShowType.MOVIE ? "movie" : "tv";
+        String providerItemId = show.providerId();
+        if (providerItemId == null || !providerItemId.matches(mediaType + "/[1-9][0-9]*")) {
+            throw new TmdbException("Invalid TMDb title identifier.");
+        }
+        String cacheKey = client.language() + "|" + providerItemId;
+        List<Models.ShowItem> cached = recommendationCache.get(cacheKey);
+        if (cached != null) return cached;
+
+        LinkedHashMap<String, Models.ShowItem> merged = new LinkedHashMap<>();
+        for (Models.ShowItem related : mapListing(
+                client.get(providerItemId + "/recommendations", Map.of()), mediaType)) {
+            if (!show.id().equals(related.id())) merged.putIfAbsent(related.id(), related);
+        }
+        String fallbackLanguage = client.language().startsWith("es") ? "en-US" : "es-ES";
+        for (Models.ShowItem related : mapListing(client.withLanguage(fallbackLanguage).get(
+                providerItemId + "/recommendations", Map.of()), mediaType)) {
+            if (!show.id().equals(related.id())) merged.putIfAbsent(related.id(), related);
+        }
+        List<Models.ShowItem> recommendations = List.copyOf(merged.values());
+        recommendationCache.putIfAbsent(cacheKey, recommendations);
+        return recommendations;
     }
 
     private List<Models.ShowItem> mergeTvPrefixResults(

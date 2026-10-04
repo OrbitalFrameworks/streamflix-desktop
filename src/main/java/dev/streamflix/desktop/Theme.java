@@ -16,9 +16,11 @@ final class Theme {
     static final Color TEXT = new Color(246, 247, 249);
     static final Color MUTED = new Color(151, 160, 178);
     static final Color MUTED_2 = new Color(110, 119, 137);
-    static final Color ACCENT = new Color(231, 43, 53);
-    static final Color ACCENT_HOVER = new Color(248, 62, 72);
+    static final Color ACCENT = new Color(201, 42, 54);
+    static final Color ACCENT_HOVER = new Color(228, 61, 73);
     static final Color DANGER = new Color(255, 118, 118);
+    static final Color SUCCESS = new Color(104, 211, 145);
+    static final Color FOCUS = new Color(255, 221, 104);
 
     static final Font FONT = new Font("Segoe UI Variable Text", Font.PLAIN, 14);
     static final Font FONT_BOLD = new Font("Segoe UI Variable Text", Font.BOLD, 14);
@@ -38,6 +40,7 @@ final class Theme {
         UIManager.put("CheckBox.arc", 6);
         UIManager.put("ProgressBar.arc", 12);
         UIManager.put("Component.focusWidth", 1);
+        UIManager.put("Component.focusColor", FOCUS);
         UIManager.put("Component.innerFocusWidth", 0);
         UIManager.put("ScrollBar.width", 10);
         UIManager.put("ScrollBar.thumbArc", 999);
@@ -147,6 +150,7 @@ final class Theme {
         private final boolean topNavigation;
         private boolean hovered;
         private boolean selectedState;
+        private boolean focused;
 
         FlatButton(String text, boolean primary, boolean navigation) {
             this(text, primary, navigation, false);
@@ -176,6 +180,16 @@ final class Theme {
                 }
                 @Override public void mouseExited(java.awt.event.MouseEvent e) {
                     hovered = false;
+                    repaint();
+                }
+            });
+            addFocusListener(new java.awt.event.FocusAdapter() {
+                @Override public void focusGained(java.awt.event.FocusEvent e) {
+                    focused = true;
+                    repaint();
+                }
+                @Override public void focusLost(java.awt.event.FocusEvent e) {
+                    focused = false;
                     repaint();
                 }
             });
@@ -221,6 +235,12 @@ final class Theme {
                     g2.setColor(ACCENT);
                     int width = Math.min(30, Math.max(14, getWidth() / 3));
                     g2.fillRoundRect((getWidth() - width) / 2, Math.max(0, getHeight() - 2), width, 2, 2, 2);
+                }
+                if (focused) {
+                    g2.setColor(FOCUS);
+                    g2.setStroke(new BasicStroke(2f));
+                    g2.drawRoundRect(1, 1, Math.max(0, getWidth() - 3),
+                            Math.max(0, getHeight() - 3), 10, 10);
                 }
             } finally {
                 g2.dispose();
