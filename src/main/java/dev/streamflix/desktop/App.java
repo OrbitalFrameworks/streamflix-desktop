@@ -24,7 +24,6 @@ public final class App {
                 frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
             }
             frame.setVisible(true);
-            MpvBootstrap.ensureReady(frame);
             UpdateService.checkAndPrompt(frame, false);
         });
     }

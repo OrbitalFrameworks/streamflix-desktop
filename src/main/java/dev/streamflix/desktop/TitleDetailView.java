@@ -3,6 +3,9 @@ package dev.streamflix.desktop;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
+import java.awt.event.MouseWheelListener;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -83,19 +86,6 @@ final class TitleDetailView extends JPanel {
         hero.setAlignmentX(Component.LEFT_ALIGNMENT);
         content.add(hero);
 
-        if (provider instanceof TmdbProvider) {
-            JPanel recommendationsWrap = new JPanel(new BorderLayout());
-            recommendationsWrap.setOpaque(false);
-            recommendationsWrap.setBorder(new EmptyBorder(18, 40, 8, 40));
-            recommendationArea.setOpaque(false);
-            JLabel loading = Theme.muted("Cargando títulos relacionados…");
-            loading.setBorder(new EmptyBorder(12, 0, 12, 0));
-            recommendationArea.add(loading, BorderLayout.CENTER);
-            recommendationsWrap.add(recommendationArea, BorderLayout.CENTER);
-            recommendationsWrap.setAlignmentX(Component.LEFT_ALIGNMENT);
-            content.add(recommendationsWrap);
-        }
-
         if (item.type() == Models.ShowType.TV_SHOW) {
             JPanel episodesWrap = new JPanel(new BorderLayout());
             episodesWrap.setOpaque(false);
@@ -109,6 +99,19 @@ final class TitleDetailView extends JPanel {
             episodesWrap.add(episodeArea, BorderLayout.CENTER);
             episodesWrap.setAlignmentX(Component.LEFT_ALIGNMENT);
             content.add(episodesWrap);
+        }
+
+        if (provider instanceof TmdbProvider) {
+            JPanel recommendationsWrap = new JPanel(new BorderLayout());
+            recommendationsWrap.setOpaque(false);
+            recommendationsWrap.setBorder(new EmptyBorder(18, 40, 8, 40));
+            recommendationArea.setOpaque(false);
+            JLabel loading = Theme.muted("Cargando títulos relacionados…");
+            loading.setBorder(new EmptyBorder(12, 0, 12, 0));
+            recommendationArea.add(loading, BorderLayout.CENTER);
+            recommendationsWrap.add(recommendationArea, BorderLayout.CENTER);
+            recommendationsWrap.setAlignmentX(Component.LEFT_ALIGNMENT);
+            content.add(recommendationsWrap);
         }
 
         JScrollPane scroll = new JScrollPane(content);
@@ -145,20 +148,84 @@ final class TitleDetailView extends JPanel {
         if (recommendations == null || recommendations.isEmpty()) {
             recommendationArea.add(Theme.muted("No hay títulos relacionados disponibles."), BorderLayout.CENTER);
         } else {
-            JPanel rail = new JPanel(new FlowLayout(FlowLayout.LEFT, 14, 0));
+            JPanel rail = new JPanel();
             rail.setOpaque(false);
-            for (Models.ShowItem recommendation : recommendations.stream().limit(12).toList()) {
+            rail.setLayout(new BoxLayout(rail, BoxLayout.X_AXIS));
+            List<Models.ShowItem> visibleRecommendations = recommendations.stream().limit(12).toList();
+            for (int i = 0; i < visibleRecommendations.size(); i++) {
+                Models.ShowItem recommendation = visibleRecommendations.get(i);
                 rail.add(new LandscapeCard(recommendation, onOpenRelated));
+                if (i < visibleRecommendations.size() - 1) rail.add(Box.createHorizontalStrut(14));
             }
+
             JPanel section = new JPanel();
             section.setOpaque(false);
             section.setLayout(new BoxLayout(section, BoxLayout.Y_AXIS));
+
             JLabel heading = Theme.heading("También te puede gustar", 23f);
             heading.setAlignmentX(Component.LEFT_ALIGNMENT);
-            rail.setAlignmentX(Component.LEFT_ALIGNMENT);
-            section.add(heading);
+            JPanel sectionHeading = new JPanel(new BorderLayout());
+            sectionHeading.setOpaque(false);
+            sectionHeading.setAlignmentX(Component.LEFT_ALIGNMENT);
+            sectionHeading.add(heading, BorderLayout.WEST);
+
+            JPanel railActions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
+            railActions.setOpaque(false);
+            JButton previous = Theme.button("‹");
+            JButton next = Theme.button("›");
+            previous.setToolTipText("Anterior");
+            next.setToolTipText("Siguiente");
+            previous.getAccessibleContext().setAccessibleName("Mostrar recomendaciones anteriores");
+            next.getAccessibleContext().setAccessibleName("Mostrar más recomendaciones");
+            previous.setPreferredSize(new Dimension(38, 34));
+            next.setPreferredSize(new Dimension(38, 34));
+            railActions.add(previous);
+            railActions.add(next);
+            sectionHeading.add(railActions, BorderLayout.EAST);
+
+            JScrollPane scroll = new JScrollPane(rail);
+            scroll.setBorder(null);
+            scroll.setOpaque(false);
+            scroll.getViewport().setOpaque(false);
+            scroll.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER);
+            scroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+            scroll.setWheelScrollingEnabled(false);
+            JScrollBar horizontal = scroll.getHorizontalScrollBar();
+            horizontal.setUnitIncrement(34);
+
+            Runnable updateArrows = () -> {
+                int max = Math.max(horizontal.getMinimum(),
+                        horizontal.getMaximum() - horizontal.getVisibleAmount());
+                previous.setEnabled(horizontal.getValue() > horizontal.getMinimum());
+                next.setEnabled(horizontal.getValue() < max);
+            };
+            horizontal.addAdjustmentListener(e -> updateArrows.run());
+            previous.addActionListener(e -> scrollBarBy(horizontal, -1.0,
+                    Math.max(240, scroll.getViewport().getWidth() - 100)));
+            next.addActionListener(e -> scrollBarBy(horizontal, 1.0,
+                    Math.max(240, scroll.getViewport().getWidth() - 100)));
+
+            MouseWheelListener railWheel = e -> {
+                boolean canScrollHorizontally = horizontal.getMaximum() - horizontal.getMinimum()
+                        > horizontal.getVisibleAmount();
+                if (canScrollHorizontally) {
+                    scrollBarBy(horizontal, e.getPreciseWheelRotation(), 118);
+                    e.consume();
+                }
+            };
+            installMouseWheelListenerRecursively(scroll.getViewport(), railWheel);
+            scroll.addComponentListener(new ComponentAdapter() {
+                @Override public void componentResized(ComponentEvent e) {
+                    updateArrows.run();
+                }
+            });
+            SwingUtilities.invokeLater(updateArrows);
+
+            section.add(sectionHeading);
             section.add(Box.createVerticalStrut(12));
-            section.add(rail);
+            scroll.setAlignmentX(Component.LEFT_ALIGNMENT);
+            scroll.setPreferredSize(new Dimension(800, 198));
+            section.add(scroll);
             recommendationArea.add(section, BorderLayout.CENTER);
         }
         recommendationArea.revalidate();
@@ -496,6 +563,18 @@ final class TitleDetailView extends JPanel {
 
     private void chooseServerAndPlay(String providerItemId, String mediaTitle, boolean autoPlay,
                                      Models.Episode episode, double resumeAtSeconds, Component manualInvoker) {
+        MpvBootstrap.ensureReady(owner, ready -> {
+            if (!ready) {
+                status.setText("No se pudo preparar el reproductor");
+                return;
+            }
+            chooseReadyServerAndPlay(providerItemId, mediaTitle, autoPlay,
+                    episode, resumeAtSeconds, manualInvoker);
+        });
+    }
+
+    private void chooseReadyServerAndPlay(String providerItemId, String mediaTitle, boolean autoPlay,
+                                          Models.Episode episode, double resumeAtSeconds, Component manualInvoker) {
         long playbackRequest = MpvPlayer.beginRequest();
         status.setText(autoPlay ? "Preparando reproducción…" : "Buscando fuentes…");
 
@@ -713,6 +792,53 @@ final class TitleDetailView extends JPanel {
                 }
             }
         }.execute();
+    }
+
+    private static void installMouseWheelListenerRecursively(
+            Component component, MouseWheelListener listener) {
+        component.addMouseWheelListener(listener);
+        if (component instanceof Container container) {
+            for (Component child : container.getComponents()) {
+                installMouseWheelListenerRecursively(child, listener);
+            }
+        }
+    }
+
+    private static void scrollBarBy(JScrollBar bar, double preciseRotation, int pixelsPerNotch) {
+        if (bar == null || !Double.isFinite(preciseRotation) || preciseRotation == 0.0) return;
+
+        int min = bar.getMinimum();
+        int max = Math.max(min, bar.getMaximum() - bar.getVisibleAmount());
+        Timer activeTimer = (Timer) bar.getClientProperty("streamflix.smoothScrollTimer");
+        Object targetProperty = bar.getClientProperty("streamflix.smoothScrollTarget");
+        double base = activeTimer != null && activeTimer.isRunning() && targetProperty instanceof Double target
+                ? target
+                : bar.getValue();
+        double target = Math.max(min, Math.min(max, base + preciseRotation * pixelsPerNotch));
+        bar.putClientProperty("streamflix.smoothScrollTarget", target);
+
+        if (activeTimer != null && activeTimer.isRunning()) return;
+
+        Timer timer = new Timer(16, null);
+        timer.setCoalesce(true);
+        timer.addActionListener(e -> {
+            Object value = bar.getClientProperty("streamflix.smoothScrollTarget");
+            double desired = value instanceof Double d ? d : bar.getValue();
+            int current = bar.getValue();
+            double distance = desired - current;
+
+            if (Math.abs(distance) <= 1.0) {
+                bar.setValue((int) Math.round(desired));
+                ((Timer) e.getSource()).stop();
+                return;
+            }
+
+            int step = (int) Math.round(distance * 0.24);
+            if (step == 0) step = distance > 0 ? 1 : -1;
+            bar.setValue(Math.max(min, Math.min(max, current + step)));
+        });
+        bar.putClientProperty("streamflix.smoothScrollTimer", timer);
+        timer.start();
     }
 
     private static Models.Video requirePlayable(Models.Video video) {

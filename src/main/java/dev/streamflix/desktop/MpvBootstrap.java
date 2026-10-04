@@ -18,6 +18,7 @@ import java.time.Duration;
 import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 final class MpvBootstrap {
     static final String BUILD_ID = "20260830-e8673660ab";
@@ -63,10 +64,15 @@ final class MpvBootstrap {
         }
     }
 
-    static void ensureReady(Component parent) {
-        if (MpvPlayer.isAvailable()) return;
+    static void ensureReady(Component parent, Consumer<Boolean> completion) {
+        Consumer<Boolean> safeCompletion = completion == null ? ignored -> {} : completion;
+        if (MpvPlayer.isAvailable()) {
+            safeCompletion.accept(true);
+            return;
+        }
         if (!isWindows()) {
             showFailure(parent, "mpv no está instalado y el aprovisionamiento automático es solo para Windows.");
+            safeCompletion.accept(false);
             return;
         }
 
@@ -85,7 +91,10 @@ final class MpvBootstrap {
                     AppLog.error("mpv-bootstrap", "No se pudo preparar mpv.", ex);
                     dialog.dispose();
                     showFailure(parent, rootMessage(ex));
+                    safeCompletion.accept(false);
+                    return;
                 }
+                safeCompletion.accept(true);
             }
         };
         worker.execute();

@@ -3,6 +3,7 @@ package dev.streamflix.desktop;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
+import java.util.concurrent.atomic.AtomicReference;
 
 public final class MpvBootstrapTest {
     public static void main(String[] args) throws Exception {
@@ -15,6 +16,9 @@ public final class MpvBootstrapTest {
             Files.write(MpvBootstrap.executablePath(), new byte[] {1});
             Files.writeString(root.resolve("VERSION"), MpvBootstrap.BUILD_ID);
             check(MpvBootstrap.managedRuntimeReady(), "matching runtime ready");
+            AtomicReference<Boolean> ready = new AtomicReference<>();
+            MpvBootstrap.ensureReady(null, ready::set);
+            check(Boolean.TRUE.equals(ready.get()), "ready callback allows playback");
 
             Files.writeString(root.resolve("VERSION"), "old-build");
             check(!MpvBootstrap.managedRuntimeReady(), "old runtime rejected");
