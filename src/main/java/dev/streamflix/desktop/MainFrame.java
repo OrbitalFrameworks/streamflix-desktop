@@ -393,9 +393,8 @@ final class MainFrame extends JFrame {
                 } else if (homeRoot.getComponentCount() == 0) {
                     renderHome(cachedHome.data());
                 }
-                contentStack.showCard(Mode.HOME.name(), () -> {
-                    homeScroll.getVerticalScrollBar().setValue(cachedHome.scrollPosition());
-                });
+                homeScroll.getVerticalScrollBar().setValue(cachedHome.scrollPosition());
+                contentStack.showCard(Mode.HOME.name());
                 status.setText(" ");
                 return;
             }
@@ -414,9 +413,8 @@ final class MainFrame extends JFrame {
                 page = cached.page();
                 hasMore = cached.hasMore();
                 renderCatalog(loadedItems);
-                contentStack.showCard("CATALOG", () -> {
-                    catalogScroll.getVerticalScrollBar().setValue(cached.scrollPosition());
-                });
+                catalogScroll.getVerticalScrollBar().setValue(cached.scrollPosition());
+                contentStack.showCard("CATALOG");
                 configurePaging(false, false);
                 pageLabel.setText(loadedItems.size() + " cargados");
                 status.setText(" ");
@@ -1384,17 +1382,17 @@ final class MainFrame extends JFrame {
             default -> "CATALOG";
         };
 
-        contentStack.showCard(destination, this::restoreFocusAfterDetails);
-
         if (mode == Mode.HOME) {
             int savedScroll = catalogRamCache.getHomeScroll(TmdbSettings.catalogLanguage());
-            SwingUtilities.invokeLater(() -> homeScroll.getVerticalScrollBar().setValue(savedScroll));
+            homeScroll.getVerticalScrollBar().setValue(savedScroll);
         } else if (destination.equals("CATALOG")) {
             CatalogRamCache.CatalogEntry cached = catalogRamCache.get(currentCatalogKey());
             if (cached != null) {
-                SwingUtilities.invokeLater(() -> catalogScroll.getVerticalScrollBar().setValue(cached.scrollPosition()));
+                catalogScroll.getVerticalScrollBar().setValue(cached.scrollPosition());
             }
         }
+
+        contentStack.showCard(destination, this::restoreFocusAfterDetails);
     }
 
     private void restoreFocusAfterDetails() {
@@ -1506,9 +1504,8 @@ final class MainFrame extends JFrame {
             page = cached.page();
             hasMore = cached.hasMore();
             renderCatalog(loadedItems);
-            contentStack.showCard("CATALOG", () -> {
-                catalogScroll.getVerticalScrollBar().setValue(cached.scrollPosition());
-            });
+            catalogScroll.getVerticalScrollBar().setValue(cached.scrollPosition());
+            contentStack.showCard("CATALOG");
             configurePaging(false, false);
             pageLabel.setText(loadedItems.size() + " cargados");
             status.setText(" ");

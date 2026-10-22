@@ -6,6 +6,8 @@ public final class ProviderFallbackCoordinatorTest {
     public static void main(String[] args) {
         testContentVerificationMatch();
         testCandidateResolution();
+        testCandidateResolutionCooldownDemotesPrimary();
+        testCandidateResolutionDegradedPrimaryDemoted();
         testCandidateTargetResolutionMovie();
         testCandidateTargetResolutionEpisode();
         testContentSubstitutionPrevention();
@@ -45,6 +47,7 @@ public final class ProviderFallbackCoordinatorTest {
     }
 
     private static void testCandidateResolution() {
+        ProviderHealthStats.resetForTesting();
         Provider primary = dummy("prov-primary", "Primary Provider", true, true);
         Provider alt1 = dummy("prov-alt1", "Alt 1", true, true);
         Provider alt2 = dummy("prov-alt2", "Alt 2", true, true);
@@ -61,6 +64,58 @@ public final class ProviderFallbackCoordinatorTest {
         require(candidates.get(0).provider().id().equals("prov-primary"), "primary candidate first");
         boolean liveIncluded = candidates.stream().anyMatch(c -> c.provider().id().equals("prov-live"));
         require(!liveIncluded, "live provider excluded from VOD fallback");
+    }
+
+    private static void testCandidateResolutionCooldownDemotesPrimary() {
+        ProviderHealthStats.resetForTesting();
+        Provider primary = dummy("prov-primary-failing", "Primary Failing", true, true);
+        Provider alt1 = dummy("prov-alt-healthy", "Alt Healthy", true, true);
+        Provider alt2 = dummy("prov-alt-secondary", "Alt Secondary", true, true);
+
+        // Put primary in cooldown with 3 consecutive failures
+        for (int i = 0; i < 3; i++) {
+            ProviderHealthStats.recordFailure("prov-primary-failing", 1000);
+        }
+        // Alt healthy has recorded successes
+        ProviderHealthStats.recordSuccess("prov-alt-healthy", 500);
+
+        Models.ShowItem item = new Models.ShowItem(
+                "item-2", "prov-item-2", "Gladiator", null, "2000",
+                155, 8.5, null, null, Models.ShowType.MOVIE, "prov-primary-failing");
+
+        List<ProviderFallbackCoordinator.Candidate> candidates =
+                ProviderFallbackCoordinator.resolveCandidates(primary, "prov-item-2", item, null,
+                        List.of(primary, alt1, alt2));
+
+        require(!candidates.isEmpty(), "candidates non-empty");
+        require(candidates.get(0).provider().id().equals("prov-alt-healthy"),
+                "healthy alternative ranked ahead of cooling down primary");
+        require(candidates.stream().anyMatch(c -> c.provider().id().equals("prov-primary-failing")),
+                "cooling down primary still retained as fallback candidate");
+    }
+
+    private static void testCandidateResolutionDegradedPrimaryDemoted() {
+        ProviderHealthStats.resetForTesting();
+        Provider primary = dummy("prov-primary-degraded", "Primary Degraded", true, true);
+        Provider altHealthy = dummy("prov-alt-healthy-2", "Alt Healthy 2", true, true);
+
+        // Primary has 2 consecutive failures (degraded, not yet in 3-failure cooldown)
+        ProviderHealthStats.recordFailure("prov-primary-degraded", 1200);
+        ProviderHealthStats.recordFailure("prov-primary-degraded", 1500);
+
+        // Alt healthy has proven successes
+        ProviderHealthStats.recordSuccess("prov-alt-healthy-2", 400);
+
+        Models.ShowItem item = new Models.ShowItem(
+                "item-3", "prov-item-3", "Inception", null, "2010",
+                148, 8.8, null, null, Models.ShowType.MOVIE, "prov-primary-degraded");
+
+        List<ProviderFallbackCoordinator.Candidate> candidates =
+                ProviderFallbackCoordinator.resolveCandidates(primary, "prov-item-3", item, null,
+                        List.of(primary, altHealthy));
+
+        require(candidates.get(0).provider().id().equals("prov-alt-healthy-2"),
+                "healthy alternative outranks degraded primary candidate");
     }
 
     private static void testCandidateTargetResolutionMovie() {

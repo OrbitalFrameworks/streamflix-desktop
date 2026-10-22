@@ -20,6 +20,23 @@ final class ProviderHealthStats {
     private static final Object LOCK = new Object();
     private static final long COOLDOWN_DURATION_MILLIS = TimeUnit.MINUTES.toMillis(5);
     private static final long AGING_DURATION_MILLIS = TimeUnit.DAYS.toMillis(7);
+    private static volatile Map<String, Stats> cachedStats = null;
+    private static final java.util.concurrent.ExecutorService IO_EXECUTOR =
+            java.util.concurrent.Executors.newSingleThreadExecutor(r -> {
+                Thread t = new Thread(r, "provider-health-io");
+                t.setDaemon(true);
+                return t;
+            });
+
+    static {
+        IO_EXECUTOR.execute(() -> {
+            synchronized (LOCK) {
+                if (cachedStats == null) {
+                    cachedStats = loadStatsFromDisk();
+                }
+            }
+        });
+    }
 
     // Known full-HD / high-reliability provider IDs
     private static final Set<String> HIGH_QUALITY_PROVIDERS = Set.of(
@@ -110,9 +127,12 @@ final class ProviderHealthStats {
 
         if (isCoolingDown(stats)) {
             score += 10000.0;
-        }
-        if (isPreferred) {
-            score -= 1500.0;
+        } else if (isPreferred) {
+            if (stats.consecutiveFailures() == 0) {
+                score -= 1500.0;
+            } else if (stats.consecutiveFailures() == 1) {
+                score -= 400.0;
+            }
         }
         if (isLanguageMatch(providerId, preferredLanguage)) {
             score -= 400.0;
@@ -148,12 +168,20 @@ final class ProviderHealthStats {
 
     static void resetForTesting() {
         synchronized (LOCK) {
+            cachedStats = new LinkedHashMap<>();
             Path file = statsFile();
             try { Files.deleteIfExists(file); } catch (IOException ignored) {}
         }
     }
 
+    static void flushForTesting() {
+        try {
+            IO_EXECUTOR.submit(() -> {}).get(5, TimeUnit.SECONDS);
+        } catch (Exception ignored) {}
+    }
+
     private static void update(String providerId, long startupMillis, boolean success) {
+        Map<String, Stats> snapshot;
         synchronized (LOCK) {
             Map<String, Stats> stats = readStatsUnlocked();
             Stats prev = stats.getOrDefault(providerId, new Stats(0, 0, 0, 0.0, 0L, 0L, 0L));
@@ -175,8 +203,10 @@ final class ProviderHealthStats {
 
             stats.put(providerId, new Stats(
                     successes, failures, consecutiveFailures, average, lastSuccess, lastFailure, now));
-            writeStats(stats);
+            cachedStats = new LinkedHashMap<>(stats);
+            snapshot = new LinkedHashMap<>(stats);
         }
+        IO_EXECUTOR.execute(() -> writeStatsToDisk(snapshot));
     }
 
     private static Map<String, Stats> readStats() {
@@ -186,6 +216,24 @@ final class ProviderHealthStats {
     }
 
     private static Map<String, Stats> readStatsUnlocked() {
+        if (cachedStats != null) {
+            return new LinkedHashMap<>(cachedStats);
+        }
+        if (javax.swing.SwingUtilities.isEventDispatchThread()) {
+            IO_EXECUTOR.execute(() -> {
+                synchronized (LOCK) {
+                    if (cachedStats == null) {
+                        cachedStats = loadStatsFromDisk();
+                    }
+                }
+            });
+            return new LinkedHashMap<>();
+        }
+        cachedStats = loadStatsFromDisk();
+        return new LinkedHashMap<>(cachedStats);
+    }
+
+    private static Map<String, Stats> loadStatsFromDisk() {
         Path file = statsFile();
         LinkedHashMap<String, Stats> out = new LinkedHashMap<>();
         try {
@@ -225,7 +273,8 @@ final class ProviderHealthStats {
         return out;
     }
 
-    private static void writeStats(Map<String, Stats> stats) {
+
+    private static void writeStatsToDisk(Map<String, Stats> stats) {
         Path target = statsFile();
         Path dir = target.getParent();
         Path temp = null;

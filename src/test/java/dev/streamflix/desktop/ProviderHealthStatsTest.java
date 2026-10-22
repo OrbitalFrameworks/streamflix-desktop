@@ -14,6 +14,7 @@ public final class ProviderHealthStatsTest {
             testConsecutiveFailuresAndCooldown();
             testRankingOrder();
             testPersistenceAndSummary();
+            testMemoryCachingAndEdtSafety();
             System.out.println("ProviderHealthStatsTest OK");
         } finally {
             System.clearProperty("streamflix.data.dir");
@@ -88,6 +89,22 @@ public final class ProviderHealthStatsTest {
         String summary = ProviderHealthStats.summary();
         require(summary.contains("persisted-p"), "summary includes persisted provider");
         require(summary.contains("success=1"), "summary includes success count");
+    }
+
+    private static void testMemoryCachingAndEdtSafety() {
+        ProviderHealthStats.resetForTesting();
+        ProviderHealthStats.recordSuccess("p-mem", 800);
+
+        ProviderHealthStats.Stats s = ProviderHealthStats.getStats("p-mem");
+        require(s != null && s.successes() == 1, "in-memory stats returned immediately");
+
+        ProviderHealthStats.recordFailure("p-mem", 1200);
+        ProviderHealthStats.Stats updated = ProviderHealthStats.getStats("p-mem");
+        require(updated != null && updated.failures() == 1, "memory stats updated without blocking");
+
+        List<Provider> ranked = ProviderHealthStats.rank(List.of(dummy("p-mem", "Provider Mem")), null);
+        require(!ranked.isEmpty(), "ranked non-empty without EDT blocking");
+        ProviderHealthStats.flushForTesting();
     }
 
     private static Provider dummy(String id, String name) {

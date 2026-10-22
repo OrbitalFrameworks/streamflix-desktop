@@ -9,15 +9,18 @@ import java.awt.image.BufferedImage;
 /**
  * A container using CardLayout with brief, interruptible, EDT-safe crossfades
  * between cards, respecting accessibility and reduced-motion preferences.
+ * Real-time frame pacing and interactive fluid rendering depend on host display
+ * compositor performance and remain tracked as native validation debt in headless CI.
  */
 final class SmoothContentHost extends JPanel {
-    static final int TRANSITION_DURATION_MS = 140; // Snappy Apple-style duration
-    static final int FRAME_INTERVAL_MS = 16;       // ~60 fps
+    static final int TRANSITION_DURATION_MS = 140; // Snappy crossfade duration
+    static final int FRAME_INTERVAL_MS = 16;       // 16 ms timer intervals on EDT; display frame rate is hardware-dependent
 
     private final CardLayout cardLayout = new CardLayout();
     private final Timer transitionTimer;
     private BufferedImage transitionSnapshot;
     private float transitionAlpha = 0f;
+    private long transitionStartTime = 0L;
     private Runnable pendingOnComplete;
     private String currentCardName = "";
 
@@ -27,13 +30,13 @@ final class SmoothContentHost extends JPanel {
         setOpaque(true);
         setBackground(Theme.BG);
 
-        float alphaStep = (float) FRAME_INTERVAL_MS / (float) TRANSITION_DURATION_MS;
-
         transitionTimer = new Timer(FRAME_INTERVAL_MS, e -> {
-            transitionAlpha -= alphaStep;
-            if (transitionAlpha <= 0.001f) {
+            long elapsed = System.currentTimeMillis() - transitionStartTime;
+            float progress = (float) elapsed / (float) TRANSITION_DURATION_MS;
+            if (progress >= 1.0f) {
                 stopTransition();
             } else {
+                transitionAlpha = Math.max(0.0f, 1.0f - progress);
                 repaint();
             }
         });
@@ -56,6 +59,10 @@ final class SmoothContentHost extends JPanel {
 
     String currentCard() {
         return currentCardName;
+    }
+
+    boolean isTransitioning() {
+        return transitionTimer.isRunning();
     }
 
     void showCard(String name) {
@@ -97,6 +104,7 @@ final class SmoothContentHost extends JPanel {
             g2.dispose();
             this.transitionSnapshot = snapshot;
             this.transitionAlpha = 1.0f;
+            this.transitionStartTime = System.currentTimeMillis();
             this.pendingOnComplete = onComplete;
         } catch (Throwable t) {
             this.transitionSnapshot = null;
@@ -122,6 +130,7 @@ final class SmoothContentHost extends JPanel {
         }
         transitionSnapshot = null;
         transitionAlpha = 0f;
+        transitionStartTime = 0L;
         Runnable cb = pendingOnComplete;
         pendingOnComplete = null;
         repaint();
@@ -136,6 +145,7 @@ final class SmoothContentHost extends JPanel {
         }
         transitionSnapshot = null;
         transitionAlpha = 0f;
+        transitionStartTime = 0L;
         pendingOnComplete = null;
         repaint();
     }
@@ -143,12 +153,14 @@ final class SmoothContentHost extends JPanel {
     @Override
     protected void paintChildren(Graphics g) {
         super.paintChildren(g);
-        if (transitionAlpha > 0.001f && transitionSnapshot != null) {
+        BufferedImage snapshot = transitionSnapshot;
+        float alpha = transitionAlpha;
+        if (alpha > 0.001f && snapshot != null) {
             Graphics2D g2 = (Graphics2D) g.create();
             try {
                 g2.setComposite(AlphaComposite.getInstance(
-                        AlphaComposite.SRC_OVER, Math.min(1.0f, Math.max(0.0f, transitionAlpha))));
-                g2.drawImage(transitionSnapshot, 0, 0, null);
+                        AlphaComposite.SRC_OVER, Math.min(1.0f, Math.max(0.0f, alpha))));
+                g2.drawImage(snapshot, 0, 0, null);
             } finally {
                 g2.dispose();
             }
@@ -157,6 +169,9 @@ final class SmoothContentHost extends JPanel {
 
     static boolean isReducedMotion() {
         String prop = System.getProperty("streamflix.reducedMotion");
+        if (prop == null) {
+            prop = System.getenv("STREAMFLIX_REDUCED_MOTION");
+        }
         if (prop != null) {
             return "true".equalsIgnoreCase(prop) || "1".equals(prop);
         }

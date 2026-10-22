@@ -9,7 +9,7 @@ Streamflix Desktop implements a fast, responsive navigation architecture on Java
 All primary section transitions (Home, Movies, Series, Live, Sports, Details) are managed by `SmoothContentHost`.
 
 ### Rules
-- **Snappy Crossfade**: Transitions use an interruptible 140 ms crossfade at ~60 fps (16 ms timer intervals). The outgoing view snapshot fades out gracefully while the incoming view is immediately rendered underneath.
+- **Snappy Crossfade**: Transitions use an interruptible 140 ms crossfade driven by 16 ms timer intervals on the EDT. The outgoing view snapshot fades out gracefully while the incoming view is immediately rendered underneath. Interactive smoothness and physical frame rates depend on native display hardware and compositor behavior, and are tracked as native validation debt.
 - **EDT Safety**: The transition uses a single coalesced Swing `Timer` running exclusively on the Event Dispatch Thread (EDT). No background threads manipulate Swing hierarchies during transitions.
 - **Immediate Interruption**: Any user mouse click immediately terminates the running transition (`stopTransition()`), achieving zero interaction latency.
 - **Superseded Route Cancellation**: If a user switches sections rapidly before a previous transition concludes, pending callbacks for obsolete routes are canceled (`cancelTransition()`), preventing invalid state or focus leaks.
@@ -53,15 +53,18 @@ To prevent repeated network requests, catalog pages and Home data are cached in 
 
 ---
 
-## 4. Performance Baseline vs. Optimized Metrics
+## 4. Architectural Characteristics vs. Uncached Baseline
 
-| Scenario | Baseline (Without RAM Cache / Instant Navigation) | Optimized (SmoothContentHost + CatalogRamCache) | Improvement |
+| Scenario | Baseline (Without RAM Cache / Instant Navigation) | Optimized (SmoothContentHost + CatalogRamCache) | Observed Mechanism & Benefit |
 |---|---|---|---|
-| **Tab switch (Home ↔ Movies ↔ Series)** | 350 – 850 ms (Network I/O + JSON parse + skeleton flash) | < 16 ms (Memory hit, instant render) | **> 95% latency reduction**, zero skeleton flicker |
-| **Return from Title Details to Home** | 400 – 900 ms (Full remote reload of Home rails) | < 16 ms (RAM cache hit + in-place history update) | **100% network round-trip elimination** |
-| **Scroll position retention** | Reset to 0 (top of page on every revisit) | Preserved to exact pixel offset | **Eliminates user disorientation** |
-| **Detail-to-detail navigation** | Lost parent context (returns directly to catalog) | Full LIFO backstack unwinding | **Native desktop back-navigation fidelity** |
-| **CPU / EDT utilization during motion** | N/A (abrupt jumps) | Smooth 60 fps fade with 16 ms timer coalesce | **Fluid visual continuity without EDT stalls** |
+| **Tab switch (Home ↔ Movies ↔ Series)** | Remote network I/O + JSON parse + skeleton flash | Instantaneous in-memory lookup (`CatalogRamCache.get`) | Zero skeleton flicker, zero redundant HTTP calls while TTL is valid |
+| **Return from Title Details to Home** | Full remote reload of Home rails | RAM cache hit + in-place history update (`updateHomeHistory`) | Zero remote round-trips for remote rails; immediate paint |
+| **Scroll position retention** | Reset to 0 (top of page on every revisit) | Preserved to exact vertical pixel offset | Seamless return to previously browsed content offset |
+| **Detail-to-detail navigation** | Lost parent context (returns directly to catalog) | Full LIFO backstack unwinding (`detailHistoryStack`) | Native desktop back-navigation fidelity across nested items |
+| **EDT safety during motion** | Abrupt card replacement or uncoordinated repaints | Single coalesced Swing timer with wall-clock interpolation | Fluid visual continuity without EDT stalls or thread race conditions |
+
+> [!NOTE]
+> Physical display frame rates and network latency depend on local hardware and external server responsiveness. Continuous integration test suites run in headless environments and verify logical state transitions, cache eviction, and thread safety rather than measuring interactive panel FPS. Interactive display smoothness and 60 fps pacing remain documented validation debt requiring native verification.
 
 ---
 

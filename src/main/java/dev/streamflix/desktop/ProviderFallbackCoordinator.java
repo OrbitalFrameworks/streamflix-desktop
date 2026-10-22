@@ -31,21 +31,27 @@ final class ProviderFallbackCoordinator {
             Models.Episode episode,
             List<Provider> allProviders) {
 
-        LinkedHashMap<String, Candidate> candidates = new LinkedHashMap<>();
+        LinkedHashMap<String, Candidate> candidateMap = new LinkedHashMap<>();
 
         // 1. Primary candidate
-        if (primaryProvider != null && primaryItemId != null && !primaryItemId.isBlank()) {
-            candidates.put(primaryProvider.id(), new Candidate(
-                    primaryProvider,
-                    primaryItemId,
-                    item != null ? item.title() : primaryItemId,
-                    item != null ? item.type() : Models.ShowType.MOVIE,
-                    episode
-            ));
+        if (primaryProvider != null && VodSearchCoordinator.isVodProvider(primaryProvider)
+                && primaryItemId != null && !primaryItemId.isBlank()) {
+            if (item == null
+                    || (item.type() == Models.ShowType.MOVIE && primaryProvider.supportsMovies())
+                    || (item.type() == Models.ShowType.TV_SHOW && primaryProvider.supportsTvShows())
+                    || item.type() == null) {
+                candidateMap.put(primaryProvider.id(), new Candidate(
+                        primaryProvider,
+                        primaryItemId,
+                        item != null ? item.title() : primaryItemId,
+                        item != null ? item.type() : Models.ShowType.MOVIE,
+                        episode
+                ));
+            }
         }
 
         if (item == null) {
-            return List.copyOf(candidates.values());
+            return List.copyOf(candidateMap.values());
         }
 
         // 2. Candidates pre-registered from multi-provider search
@@ -56,35 +62,47 @@ final class ProviderFallbackCoordinator {
         }
 
         for (VodSearchCoordinator.ProviderCandidate pre : preRegistered) {
-            if (candidates.containsKey(pre.providerId())) continue;
+            if (candidateMap.containsKey(pre.providerId())) continue;
             Provider p = findProvider(allProviders, pre.providerId());
             if (p == null || !VodSearchCoordinator.isVodProvider(p)) continue;
+            if (item.type() == Models.ShowType.MOVIE && !p.supportsMovies()) continue;
+            if (item.type() == Models.ShowType.TV_SHOW && !p.supportsTvShows()) continue;
 
-            // For movies, pre-registered item id is directly usable
-            if (item.type() == Models.ShowType.MOVIE) {
-                candidates.put(p.id(), new Candidate(
-                        p, pre.providerItemId(), item.title(), item.type(), null));
+            String preItemId = (item.type() == Models.ShowType.MOVIE) ? pre.providerItemId() : null;
+            candidateMap.put(p.id(), new Candidate(p, preItemId, item.title(), item.type(), episode));
+        }
+
+        // 3. Fallback candidates from all eligible VOD providers
+        if (allProviders != null) {
+            for (Provider p : allProviders) {
+                if (p == null || !VodSearchCoordinator.isVodProvider(p)) continue;
+                if (candidateMap.containsKey(p.id())) continue;
+                if (item.type() == Models.ShowType.MOVIE && !p.supportsMovies()) continue;
+                if (item.type() == Models.ShowType.TV_SHOW && !p.supportsTvShows()) continue;
+
+                candidateMap.put(p.id(), new Candidate(p, null, item.title(), item.type(), episode));
             }
         }
 
-        // 3. Fallback candidates from all eligible VOD providers ranked by health
-        List<Provider> eligible = new ArrayList<>();
-        for (Provider p : allProviders) {
-            if (!VodSearchCoordinator.isVodProvider(p)) continue;
-            if (candidates.containsKey(p.id())) continue;
-            if (item.type() == Models.ShowType.MOVIE && !p.supportsMovies()) continue;
-            if (item.type() == Models.ShowType.TV_SHOW && !p.supportsTvShows()) continue;
-            eligible.add(p);
+        // 4. Rank all candidates according to real health telemetry metrics, cooldown, and quality
+        List<Provider> providersToRank = new ArrayList<>();
+        for (Candidate c : candidateMap.values()) {
+            if (c.provider() != null && !providersToRank.contains(c.provider())) {
+                providersToRank.add(c.provider());
+            }
         }
 
-        List<Provider> ranked = ProviderHealthStats.rank(eligible, primaryProvider);
-        for (Provider p : ranked) {
-            if (candidates.containsKey(p.id())) continue;
-            // Candidate will be lazily resolved on demand if earlier candidates fail
-            candidates.put(p.id(), new Candidate(p, null, item.title(), item.type(), episode));
+        List<Provider> rankedProviders = ProviderHealthStats.rank(providersToRank, primaryProvider);
+        LinkedHashMap<String, Candidate> ordered = new LinkedHashMap<>();
+        for (Provider p : rankedProviders) {
+            Candidate c = candidateMap.get(p.id());
+            if (c != null) ordered.put(p.id(), c);
+        }
+        for (Candidate c : candidateMap.values()) {
+            ordered.putIfAbsent(c.provider().id(), c);
         }
 
-        return List.copyOf(candidates.values());
+        return List.copyOf(ordered.values());
     }
 
     private static Provider findProvider(List<Provider> all, String id) {

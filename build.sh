@@ -50,7 +50,7 @@ for d in "${deps[@]}"; do flat_deps+=("lib/${d##*/}"); done
 printf 'Manifest-Version: 1.0\nMain-Class: dev.streamflix.desktop.App\nImplementation-Version: %s\nClass-Path: %s\n\n' "$version" "${flat_deps[*]}" > build/MANIFEST.MF
 jar --create --file build/streamflix-desktop.jar --date=2020-01-01T00:00:00Z --manifest build/MANIFEST.MF -C build/classes .
 javac --release 17 -encoding UTF-8 -cp "build/classes${sep}${dep_cp}" -d build/test-classes "${tests[@]}"
-for test in JsonTest ProviderFixtureTest TmdbFixtureTest M3uPlaylistTest M3uLiveProviderTest SportsResolverTest SportsDataTest SportsPlaybackTest SportsFavoritesTest ExtractorFixtureTest DependencySmokeTest UserDataTest MpvPlayerTest PlaybackFallbackTest PlaybackServerStatsTest UpdateServiceTest ImageDiskCacheTest DiagnosticsTest MpvBootstrapTest VodSearchCoordinatorTest ProviderHealthStatsTest ProviderFallbackCoordinatorTest CatalogRamCacheTest NavigationStateTest; do
+for test in JsonTest ProviderFixtureTest TmdbFixtureTest TmdbTitleIndexTest M3uPlaylistTest M3uLiveProviderTest SportsResolverTest SportsDataTest SportsPlaybackTest SportsFavoritesTest ExtractorFixtureTest DependencySmokeTest UserDataTest MpvPlayerTest MainFrameSearchTest PlaybackFallbackTest PlaybackRecoveryTest SubtitleAggregatorTest PlaybackServerStatsTest UpdateServiceTest ImageDiskCacheTest DiagnosticsTest MpvBootstrapTest BrandAssetsTest VodSearchCoordinatorTest ProviderHealthStatsTest ProviderFallbackCoordinatorTest CatalogRamCacheTest NavigationStateTest; do
     java -cp "build/streamflix-desktop.jar${sep}build/test-classes" "dev.streamflix.desktop.$test"
 done
 echo "Built: $ROOT/build/streamflix-desktop.jar (keep sibling lib directory)"

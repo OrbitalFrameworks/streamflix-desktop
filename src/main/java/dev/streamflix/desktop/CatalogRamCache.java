@@ -30,7 +30,8 @@ final class CatalogRamCache {
             String pid = provider != null ? provider.id() : "";
             String lang = TmdbSettings.catalogLanguage();
             String normQuery = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
-            return new CatalogKey(mode, pid, genreId, normQuery, searchScope, lang);
+            MainFrame.Mode scope = (mode == MainFrame.Mode.SEARCH) ? searchScope : null;
+            return new CatalogKey(mode, pid, genreId, normQuery, scope, lang);
         }
     }
 

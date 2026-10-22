@@ -4,11 +4,27 @@ import java.util.List;
 
 public final class VodSearchCoordinatorTest {
     public static void main(String[] args) {
+        testVodProviderFiltering();
         testScopeFilteringAndIsolation();
         testTimeoutAndResilience();
         testCanonicalDeduplicationAndCandidates();
+        testCandidateLruEviction();
+        testCandidatePerKeyBounding();
         testRelevanceRanking();
         System.out.println("VodSearchCoordinatorTest OK");
+    }
+
+    private static void testVodProviderFiltering() {
+        require(!VodSearchCoordinator.isVodProvider(null), "null is not vod provider");
+        Provider live = new M3uLiveProvider("live", "Live", "https://example.com/playlist.m3u");
+        require(!VodSearchCoordinator.isVodProvider(live), "M3uLiveProvider is not vod provider");
+
+        SportsEvent event = new SportsEvent("ev1", "Match", "Soccer", "League", "Team A", "Team B", null, null, null, null, null);
+        Provider sportsResolved = new SportsResolvedProvider(event, List.of());
+        require(!VodSearchCoordinator.isVodProvider(sportsResolved), "SportsResolvedProvider is not vod provider");
+
+        Provider testVod = new TestVodProvider("vod-test", "VOD Source", true, true, 0);
+        require(VodSearchCoordinator.isVodProvider(testVod), "TestVodProvider is vod provider");
     }
 
     private static void testScopeFilteringAndIsolation() {
@@ -85,6 +101,53 @@ public final class VodSearchCoordinatorTest {
         List<VodSearchCoordinator.ProviderCandidate> candidates =
                 VodSearchCoordinator.candidatesFor("cand-1");
         require(candidates.size() == 2, "both candidates tracked for canonical item");
+    }
+
+    private static void testCandidateLruEviction() {
+        VodSearchCoordinator.clearCandidatesForTesting();
+        int overflow = 20;
+        int total = VodSearchCoordinator.MAX_CANDIDATE_KEYS + overflow;
+        for (int i = 0; i < total; i++) {
+            Models.ShowItem item = new Models.ShowItem(
+                    "cand-" + i, "cand-" + i, "Title " + i, null, "2020",
+                    null, null, null, null, Models.ShowType.MOVIE, "source-test");
+            VodSearchCoordinator.recordCandidate("key-" + i, item);
+        }
+
+        require(VodSearchCoordinator.candidateKeyCount() == VodSearchCoordinator.MAX_CANDIDATE_KEYS,
+                "candidate cache capacity is bounded at MAX_CANDIDATE_KEYS");
+        require(VodSearchCoordinator.candidatesFor("key-0").isEmpty(),
+                "eldest key evicted under LRU policy");
+        require(!VodSearchCoordinator.candidatesFor("key-" + (total - 1)).isEmpty(),
+                "recently added key retained");
+    }
+
+    private static void testCandidatePerKeyBounding() {
+        VodSearchCoordinator.clearCandidatesForTesting();
+        String canonicalKey = "canonical-key-bound-test";
+        int totalCandidatesToAdd = 30;
+
+        for (int i = 0; i < totalCandidatesToAdd; i++) {
+            Models.ShowItem item = new Models.ShowItem(
+                    "cand-" + i, "provider-item-" + i, "Candidate Title", "Overview", "2024",
+                    120, 8.0, null, null, Models.ShowType.MOVIE, "provider-" + i);
+            VodSearchCoordinator.recordCandidate(canonicalKey, item);
+        }
+
+        List<VodSearchCoordinator.ProviderCandidate> candidates =
+                VodSearchCoordinator.candidatesFor(canonicalKey);
+
+        require(candidates.size() == VodSearchCoordinator.MAX_CANDIDATES_PER_KEY,
+                "per-key candidates must not exceed MAX_CANDIDATES_PER_KEY (expected "
+                        + VodSearchCoordinator.MAX_CANDIDATES_PER_KEY + ", got " + candidates.size() + ")");
+
+        int expectedOldestRemaining = totalCandidatesToAdd - VodSearchCoordinator.MAX_CANDIDATES_PER_KEY;
+        require(candidates.get(0).providerId().equals("provider-" + expectedOldestRemaining),
+                "oldest candidates must be evicted FIFO (first element should be provider-"
+                        + expectedOldestRemaining + ", got " + candidates.get(0).providerId() + ")");
+
+        require(candidates.get(candidates.size() - 1).providerId().equals("provider-" + (totalCandidatesToAdd - 1)),
+                "most recently added candidate should be at the end of the list");
     }
 
     private static void testRelevanceRanking() {

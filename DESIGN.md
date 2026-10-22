@@ -116,7 +116,7 @@ The brand mark supplies personality; control icons stay neutral. Do not generate
 
 ## Motion & Transition Invariants
 
-- Navigation transitions between sections (Home, Movies, Series, Live, Sports, Details) use a subtle, interruptible 140 ms crossfade at 60 fps without blocking the EDT.
+- Navigation transitions between sections (Home, Movies, Series, Live, Sports, Details) use a subtle, interruptible 140 ms crossfade driven by 16 ms timer intervals without blocking the EDT. Interactive 60 fps smoothness depends on native display hardware and is tracked as native validation debt.
 - Reduced motion: when `win.animations.enabled` is false or `streamflix.reducedMotion` is active, transition duration is 0 ms (instant switch).
 - Interactivity is immediate: clicking during a transition terminates the animation instantly.
 - State preservation: vertical scroll position, active filters, search inputs, and keyboard focus are preserved across tab switches and detail view round-trips.

@@ -21,9 +21,17 @@ final class VodSearchCoordinator {
         return t;
     });
 
-    // In-memory registry of candidate sources per canonical item ID or semantic key
+    // In-memory registry of candidate sources per canonical item ID or semantic key.
+    // Bounded with an LRU eviction policy to prevent unbounded memory growth over long-running sessions.
+    static final int MAX_CANDIDATE_KEYS = 500;
+    static final int MAX_CANDIDATES_PER_KEY = 20;
     private static final Map<String, List<ProviderCandidate>> CANDIDATES_BY_KEY =
-            new ConcurrentHashMap<>();
+            Collections.synchronizedMap(new LinkedHashMap<>(64, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<String, List<ProviderCandidate>> eldest) {
+                    return size() > MAX_CANDIDATE_KEYS;
+                }
+            });
 
     record ProviderCandidate(
             String providerId,
@@ -68,7 +76,6 @@ final class VodSearchCoordinator {
         if (provider == null) return false;
         if (provider instanceof M3uLiveProvider) return false;
         if (provider instanceof SportsResolvedProvider) return false;
-        if (provider instanceof CompositeSportsProvider) return false;
         return true;
     }
 
@@ -327,7 +334,12 @@ final class VodSearchCoordinator {
             boolean alreadyPresent = list.stream().anyMatch(
                     c -> c.providerId().equals(candidate.providerId())
                             && c.providerItemId().equals(candidate.providerItemId()));
-            if (!alreadyPresent) list.add(candidate);
+            if (!alreadyPresent) {
+                while (list.size() >= MAX_CANDIDATES_PER_KEY) {
+                    list.remove(0);
+                }
+                list.add(candidate);
+            }
             return List.copyOf(list);
         });
     }
@@ -336,6 +348,10 @@ final class VodSearchCoordinator {
         if (key == null || key.isBlank()) return List.of();
         List<ProviderCandidate> list = CANDIDATES_BY_KEY.get(key);
         return list == null ? List.of() : list;
+    }
+
+    static int candidateKeyCount() {
+        return CANDIDATES_BY_KEY.size();
     }
 
     static void clearCandidatesForTesting() {

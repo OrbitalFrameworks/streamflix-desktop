@@ -785,9 +785,9 @@ final class TitleDetailView extends JPanel {
                             });
 
                             final int nextIndex = candidateIndex + 1;
-                            final double currentResume = resumeAtSeconds;
                             player.setPlaybackIssueHandler(() -> {
                                 if (nextIndex >= candidates.size()) return false;
+                                double currentResume = Math.max(resumeAtSeconds, player.lastKnownTime());
                                 SwingUtilities.invokeLater(() -> resolveVodAndPlay(
                                         candidates, nextIndex, mediaTitle, playbackRequest,
                                         player, episode, currentResume));

@@ -17,6 +17,7 @@ public final class CatalogRamCacheTest {
         testMemoryBounding();
         testInvalidateByMode();
         testInvalidateAll();
+        testCatalogKeyScopeNormalization();
         testHomeCacheAndHistoryUpdate();
         testConcurrency();
         System.out.println("CatalogRamCacheTest OK");
@@ -139,6 +140,23 @@ public final class CatalogRamCacheTest {
         check(cache.isEmpty(), "cache is empty");
     }
 
+    private static void testCatalogKeyScopeNormalization() {
+        Provider testProvider = () -> "tmdb-es";
+        CatalogRamCache.CatalogKey k1 = CatalogRamCache.CatalogKey.of(
+                MainFrame.Mode.MOVIES, testProvider, null, "", MainFrame.Mode.HOME);
+        CatalogRamCache.CatalogKey k2 = CatalogRamCache.CatalogKey.of(
+                MainFrame.Mode.MOVIES, testProvider, null, "", MainFrame.Mode.SERIES);
+        check(k1.equals(k2), "non-search modes must produce identical catalog keys regardless of prior search scope");
+        check(k1.searchScope() == null, "catalog key searchScope must be normalized to null for non-search modes");
+
+        CatalogRamCache.CatalogKey s1 = CatalogRamCache.CatalogKey.of(
+                MainFrame.Mode.SEARCH, testProvider, null, "avatar", MainFrame.Mode.MOVIES);
+        CatalogRamCache.CatalogKey s2 = CatalogRamCache.CatalogKey.of(
+                MainFrame.Mode.SEARCH, testProvider, null, "avatar", MainFrame.Mode.SERIES);
+        check(!s1.equals(s2), "search mode must differentiate by searchScope");
+        check(s1.searchScope() == MainFrame.Mode.MOVIES, "search scope preserved");
+    }
+
     private static void testHomeCacheAndHistoryUpdate() {
         CatalogRamCache cache = new CatalogRamCache();
         Models.ShowItem movie = sampleItem("m1", Models.ShowType.MOVIE);
@@ -173,6 +191,9 @@ public final class CatalogRamCacheTest {
         CatalogRamCache.HomeEntry refreshedEntry = cache.getHome("es");
         check(refreshedEntry.data().history().size() == 2, "cache stores updated history");
         check(refreshedEntry.scrollPosition() == 240, "scroll preserved after history update");
+
+        cache.updateHomeScroll("es", 480);
+        check(cache.getHomeScroll("es") == 480, "home scroll updated and read");
     }
 
     private static void testConcurrency() throws Exception {

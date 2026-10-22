@@ -8,10 +8,48 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public final class NavigationStateTest {
     public static void main(String[] args) {
         testReducedMotionProperty();
+        testTransitionConstants();
         testSmoothContentHostInstantCardSwitch();
         testTransitionInterruption();
+        testSupersededRouteCancellation();
         testDetailNavigationStack();
+        testCardTargetMatching();
         System.out.println("NavigationStateTest OK");
+    }
+
+    private static void testCardTargetMatching() {
+        Models.ShowItem item1 = new Models.ShowItem(
+                "item-42", "prov-item", "Test Movie", "overview", "2024", 120, 8.0,
+                "http://poster", "http://banner", Models.ShowType.MOVIE, "tmdb");
+        LandscapeCard card = new LandscapeCard(item1, it -> {});
+        check("item-42".equals(card.item().id()), "LandscapeCard exposes target item ID");
+
+        HeroPanel hero = new HeroPanel(item1, it -> {});
+        check("item-42".equals(hero.item().id()), "HeroPanel exposes target item ID");
+    }
+
+    private static void testTransitionConstants() {
+        check(SmoothContentHost.TRANSITION_DURATION_MS == 140, "Snappy 140ms transition duration required");
+        check(SmoothContentHost.FRAME_INTERVAL_MS == 16, "16ms frame interval (~60 fps) required");
+    }
+
+    private static void testSupersededRouteCancellation() {
+        SmoothContentHost host = new SmoothContentHost();
+        host.addCard(new JPanel(), "A");
+        host.addCard(new JPanel(), "B");
+        host.addCard(new JPanel(), "C");
+
+        host.showCard("A");
+        AtomicBoolean bCompleted = new AtomicBoolean(false);
+        AtomicBoolean cCompleted = new AtomicBoolean(false);
+
+        // Switch to B, then immediately switch to C before B finishes
+        host.showCard("B", () -> bCompleted.set(true));
+        host.showCard("C", () -> cCompleted.set(true));
+
+        check("C".equals(host.currentCard()), "Host must be on C");
+        check(!bCompleted.get(), "Superseded route B callback must NOT be executed");
+        check(cCompleted.get(), "Destination C callback must be executed");
     }
 
     private static void testReducedMotionProperty() {
