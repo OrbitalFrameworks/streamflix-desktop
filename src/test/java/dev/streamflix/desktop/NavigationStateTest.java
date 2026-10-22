@@ -3,6 +3,7 @@ package dev.streamflix.desktop;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
 import java.awt.event.MouseEvent;
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -195,9 +196,16 @@ public final class NavigationStateTest {
         host.showCard("B", () -> b2Completed.set(true));
         check(host.isTransitioning(), "Host should be transitioning to B");
 
-        cardB.dispatchEvent(new KeyEvent(
+        // Headless components have no keyboard focus. AWT may silently discard
+        // dispatchEvent(KeyEvent) before it reaches registered listeners; invoke
+        // those listeners explicitly to test the installed descendant hook.
+        KeyEvent enter = new KeyEvent(
                 cardB, KeyEvent.KEY_PRESSED,
-                System.currentTimeMillis(), 0, KeyEvent.VK_ENTER, '\n'));
+                System.currentTimeMillis(), 0, KeyEvent.VK_ENTER, '\n');
+        check(cardB.getKeyListeners().length > 0, "Keyboard interruption listener must be installed");
+        for (KeyListener listener : cardB.getKeyListeners()) {
+            listener.keyPressed(enter);
+        }
         drainEdt();
 
         check(!host.isTransitioning(), "Transition must be stopped by key press interaction");
