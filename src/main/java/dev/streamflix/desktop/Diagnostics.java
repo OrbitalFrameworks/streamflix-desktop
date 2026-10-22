@@ -101,6 +101,7 @@ final class Diagnostics {
                     .append('\n');
         }
 
+        out.append(ProviderHealthStats.summary());
         out.append("favorites=").append(UserData.getFavorites().size()).append('\n');
         out.append("historyEntries=").append(UserData.getHistory().size()).append('\n');
         out.append("privacy=No TMDb credential, media titles, URLs or user-data contents are exported.\n");

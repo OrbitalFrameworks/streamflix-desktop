@@ -7,6 +7,7 @@ import java.util.function.Consumer;
 
 /** Image-first 16:9 catalog card with streaming-style overlay metadata. */
 final class LandscapeCard extends JLayeredPane {
+    private final Models.ShowItem item;
     private final ArtworkPanel artwork;
     private final JPanel overlay;
     private final double progress;
@@ -21,6 +22,7 @@ final class LandscapeCard extends JLayeredPane {
     }
 
     LandscapeCard(Models.ShowItem item, Consumer<Models.ShowItem> onOpen, double progress) {
+        this.item = item;
         this.progress = Math.max(0.0, Math.min(1.0, progress));
         setOpaque(false);
         setPreferredSize(new Dimension(300, 172));
@@ -190,6 +192,10 @@ final class LandscapeCard extends JLayeredPane {
     private void animateHover(float target) {
         hoverTarget = target;
         if (!hoverTimer.isRunning()) hoverTimer.start();
+    }
+
+    Models.ShowItem item() {
+        return item;
     }
 
     private void repaintAll() {
