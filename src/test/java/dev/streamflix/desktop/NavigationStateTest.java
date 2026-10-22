@@ -1,6 +1,9 @@
 package dev.streamflix.desktop;
 
 import javax.swing.*;
+import java.awt.*;
+import java.awt.event.KeyEvent;
+import java.awt.event.MouseEvent;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -12,6 +15,7 @@ public final class NavigationStateTest {
         testSmoothContentHostInstantCardSwitch();
         testTransitionInterruption();
         testSupersededRouteCancellation();
+        testRealizedComponentInterruptionCancellation();
         testDetailNavigationStack();
         testCardTargetMatching();
         System.out.println("NavigationStateTest OK");
@@ -46,10 +50,188 @@ public final class NavigationStateTest {
         // Switch to B, then immediately switch to C before B finishes
         host.showCard("B", () -> bCompleted.set(true));
         host.showCard("C", () -> cCompleted.set(true));
-
+        drainEdt();
         check("C".equals(host.currentCard()), "Host must be on C");
         check(!bCompleted.get(), "Superseded route B callback must NOT be executed");
         check(cCompleted.get(), "Destination C callback must be executed");
+    }
+
+    private static void testRealizedComponentInterruptionCancellation() {
+        if (!GraphicsEnvironment.isHeadless()) {
+            JFrame frame = new JFrame("Test SmoothContentHost Realized");
+            try {
+                SmoothContentHost host = new SmoothContentHost();
+                host.setSize(300, 200);
+                host.setForceAnimationForTesting(true);
+
+                JPanel cardA = new JPanel();
+                JPanel cardB = new JPanel();
+                JPanel cardC = new JPanel();
+                JButton childBtnB = new JButton("Child in B");
+                JButton childBtnC = new JButton("Child in C");
+                cardB.add(childBtnB);
+                cardC.add(childBtnC);
+
+                host.addCard(cardA, "A");
+                host.addCard(cardB, "B");
+                host.addCard(cardC, "C");
+
+                frame.getContentPane().add(host);
+                frame.setSize(300, 200);
+                frame.pack();
+                frame.setSize(300, 200);
+                frame.setVisible(true);
+                drainEdt();
+
+                host.showCard("A");
+                drainEdt();
+
+                AtomicBoolean bCallbackFired = new AtomicBoolean(false);
+                AtomicBoolean cCallbackFired = new AtomicBoolean(false);
+
+                // Sequential switch: A -> B -> C (B is superseded by C)
+                host.showCard("B", () -> bCallbackFired.set(true));
+                host.showCard("C", () -> cCallbackFired.set(true));
+
+                check(!bCallbackFired.get(), "Superseded callback B must not execute");
+
+                // Dispatch mouse press on descendant button in target card C during active transition
+                childBtnC.dispatchEvent(new MouseEvent(
+                        childBtnC, MouseEvent.MOUSE_PRESSED,
+                        System.currentTimeMillis(), 0, 10, 10, 1, false));
+                drainEdt();
+
+                check(!host.isTransitioning(), "Active transition must be stopped by descendant click");
+                check("C".equals(host.currentCard()), "Current card must be C");
+                check(cCallbackFired.get(), "Target card C callback must complete upon interruption");
+                check(!bCallbackFired.get(), "Superseded callback B must remain unexecuted");
+
+                // Test dynamic child component added after card was added
+                JButton dynamicChild = new JButton("Dynamic Child");
+                cardC.add(dynamicChild);
+                drainEdt();
+
+                AtomicBoolean dCallbackFired = new AtomicBoolean(false);
+                host.showCard("A");
+                host.stopTransition();
+                drainEdt();
+
+                host.showCard("C", () -> dCallbackFired.set(true));
+                check(host.isTransitioning(), "Host should be transitioning to C");
+
+                dynamicChild.dispatchEvent(new MouseEvent(
+                        dynamicChild, MouseEvent.MOUSE_PRESSED,
+                        System.currentTimeMillis(), 0, 5, 5, 1, false));
+                drainEdt();
+
+                check(!host.isTransitioning(), "Active transition must be stopped by dynamic descendant click");
+                check(dCallbackFired.get(), "Callback must fire on dynamic descendant interruption");
+            } finally {
+                frame.dispose();
+            }
+        }
+
+        testSimulatedDescendantInterruptionCancellation();
+    }
+
+    private static void testSimulatedDescendantInterruptionCancellation() {
+        SmoothContentHost host = new SmoothContentHost();
+        host.setSize(300, 200);
+        host.setForceAnimationForTesting(true);
+
+        JPanel cardA = new JPanel();
+        JPanel cardB = new JPanel();
+        JPanel cardC = new JPanel();
+        JPanel nestedContainer = new JPanel();
+        JButton descendantButton = new JButton("Descendant Button");
+        nestedContainer.add(descendantButton);
+        cardC.add(nestedContainer);
+
+        host.addCard(cardA, "A");
+        host.addCard(cardB, "B");
+        host.addCard(cardC, "C");
+
+        host.showCard("A");
+        host.stopTransition();
+        drainEdt();
+        check(!host.isTransitioning(), "Host must not be transitioning before test starts");
+
+        AtomicBoolean bCompleted = new AtomicBoolean(false);
+        AtomicBoolean cCompleted = new AtomicBoolean(false);
+
+        // Rapid sequential navigation: A -> B -> C
+        host.showCard("B", () -> bCompleted.set(true));
+        check(host.isTransitioning(), "Host should be transitioning to B");
+
+        host.showCard("C", () -> cCompleted.set(true));
+        check(host.isTransitioning(), "Host should be transitioning to C");
+        check(!bCompleted.get(), "Superseded route B callback must NOT have run");
+
+        // Fire child click on deeply nested descendantButton in C
+        descendantButton.dispatchEvent(new MouseEvent(
+                descendantButton, MouseEvent.MOUSE_PRESSED,
+                System.currentTimeMillis(), 0, 5, 5, 1, false));
+        drainEdt();
+
+        check(!host.isTransitioning(), "Transition must be stopped by descendant mouse click");
+        check("C".equals(host.currentCard()), "Host must land on target card C");
+        check(cCompleted.get(), "Destination callback C must be executed upon interruption");
+        check(!bCompleted.get(), "Superseded route B callback must remain unexecuted");
+
+        // Verify keyboard interaction interruption on descendant
+        host.showCard("A");
+        host.stopTransition();
+        drainEdt();
+
+        AtomicBoolean b2Completed = new AtomicBoolean(false);
+        host.showCard("B", () -> b2Completed.set(true));
+        check(host.isTransitioning(), "Host should be transitioning to B");
+
+        cardB.dispatchEvent(new KeyEvent(
+                cardB, KeyEvent.KEY_PRESSED,
+                System.currentTimeMillis(), 0, KeyEvent.VK_ENTER, '\n'));
+        drainEdt();
+
+        check(!host.isTransitioning(), "Transition must be stopped by key press interaction");
+        check(b2Completed.get(), "Destination callback B must be executed upon interruption");
+
+        // Verify descendant mouse release interruption
+        host.showCard("A");
+        host.stopTransition();
+        drainEdt();
+
+        AtomicBoolean b3Completed = new AtomicBoolean(false);
+        host.showCard("B", () -> b3Completed.set(true));
+        check(host.isTransitioning(), "Host should be transitioning to B");
+
+        descendantButton.dispatchEvent(new MouseEvent(
+                descendantButton, MouseEvent.MOUSE_RELEASED,
+                System.currentTimeMillis(), 0, 5, 5, 1, false));
+        drainEdt();
+
+        check(!host.isTransitioning(), "Transition must be stopped by descendant mouse release");
+        check(b3Completed.get(), "Destination callback B must execute upon interruption");
+
+        // Verify dynamic child added after card/host was constructed
+        JButton dynamicNestedButton = new JButton("Dynamic In Nested");
+        nestedContainer.add(dynamicNestedButton);
+        drainEdt();
+
+        host.showCard("A");
+        host.stopTransition();
+        drainEdt();
+
+        AtomicBoolean c2Completed = new AtomicBoolean(false);
+        host.showCard("C", () -> c2Completed.set(true));
+        check(host.isTransitioning(), "Host should be transitioning to C");
+
+        dynamicNestedButton.dispatchEvent(new MouseEvent(
+                dynamicNestedButton, MouseEvent.MOUSE_PRESSED,
+                System.currentTimeMillis(), 0, 2, 2, 1, false));
+        drainEdt();
+
+        check(!host.isTransitioning(), "Transition must be stopped by dynamic child in nested container");
+        check(c2Completed.get(), "Destination callback C must execute upon interruption");
     }
 
     private static void testReducedMotionProperty() {
@@ -81,11 +263,13 @@ public final class NavigationStateTest {
 
         AtomicBoolean completed = new AtomicBoolean(false);
         host.showCard("CARD_1", () -> completed.set(true));
+        drainEdt();
         check(completed.get(), "callback fired for CARD_1");
         check("CARD_1".equals(host.currentCard()), "current card is CARD_1");
 
         completed.set(false);
         host.showCard("CARD_2", () -> completed.set(true));
+        drainEdt();
         check(completed.get(), "callback fired for CARD_2");
         check("CARD_2".equals(host.currentCard()), "current card is CARD_2");
     }
@@ -135,5 +319,14 @@ public final class NavigationStateTest {
         if (!condition) {
             throw new AssertionError("Check failed: " + message);
         }
+    }
+
+    private static void drainEdt() {
+        try {
+            if (SwingUtilities.isEventDispatchThread()) {
+                return;
+            }
+            SwingUtilities.invokeAndWait(() -> {});
+        } catch (Exception ignored) {}
     }
 }

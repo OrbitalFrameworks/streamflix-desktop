@@ -2,8 +2,7 @@ package dev.streamflix.desktop;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
+import java.awt.event.*;
 import java.awt.image.BufferedImage;
 
 /**
@@ -21,8 +20,91 @@ final class SmoothContentHost extends JPanel {
     private BufferedImage transitionSnapshot;
     private float transitionAlpha = 0f;
     private long transitionStartTime = 0L;
-    private Runnable pendingOnComplete;
-    private String currentCardName = "";
+    private volatile Runnable pendingOnComplete;
+    private volatile String currentCardName = "";
+    private volatile long transitionGeneration = 0L;
+    private boolean forceAnimationForTesting = false;
+
+    private final MouseAdapter descendantMouseListener = new MouseAdapter() {
+        @Override
+        public void mousePressed(MouseEvent e) {
+            if (isTransitioning()) {
+                stopTransition();
+            }
+        }
+
+        @Override
+        public void mouseReleased(MouseEvent e) {
+            if (isTransitioning()) {
+                stopTransition();
+            }
+        }
+
+        @Override
+        public void mouseClicked(MouseEvent e) {
+            if (isTransitioning()) {
+                stopTransition();
+            }
+        }
+    };
+
+    private final KeyAdapter descendantKeyListener = new KeyAdapter() {
+        @Override
+        public void keyPressed(KeyEvent e) {
+            if (isTransitioning()) {
+                stopTransition();
+            }
+        }
+
+        @Override
+        public void keyReleased(KeyEvent e) {
+            if (isTransitioning()) {
+                stopTransition();
+            }
+        }
+
+        @Override
+        public void keyTyped(KeyEvent e) {
+            if (isTransitioning()) {
+                stopTransition();
+            }
+        }
+    };
+
+    private final ContainerListener descendantContainerListener = new ContainerAdapter() {
+        @Override
+        public void componentAdded(ContainerEvent e) {
+            hookDescendants(e.getChild());
+        }
+
+        @Override
+        public void componentRemoved(ContainerEvent e) {
+            unhookDescendants(e.getChild());
+        }
+    };
+
+    private final AWTEventListener awtInteractionListener = event -> {
+        if (!isTransitioning()) return;
+        if (event instanceof MouseEvent me) {
+            int id = me.getID();
+            if (id == MouseEvent.MOUSE_PRESSED || id == MouseEvent.MOUSE_RELEASED || id == MouseEvent.MOUSE_CLICKED) {
+                Object src = me.getSource();
+                if (src instanceof Component c && (c == SmoothContentHost.this || SwingUtilities.isDescendingFrom(c, SmoothContentHost.this))) {
+                    stopTransition();
+                }
+            }
+        } else if (event instanceof KeyEvent ke) {
+            int id = ke.getID();
+            if (id == KeyEvent.KEY_PRESSED || id == KeyEvent.KEY_RELEASED || id == KeyEvent.KEY_TYPED) {
+                Object src = ke.getSource();
+                if (src instanceof Component c && (c == SmoothContentHost.this || SwingUtilities.isDescendingFrom(c, SmoothContentHost.this))) {
+                    stopTransition();
+                }
+            }
+        }
+    };
+
+    private boolean awtListenerAttached = false;
 
     SmoothContentHost() {
         super();
@@ -65,6 +147,117 @@ final class SmoothContentHost extends JPanel {
         return transitionTimer.isRunning();
     }
 
+    void setForceAnimationForTesting(boolean force) {
+        this.forceAnimationForTesting = force;
+    }
+
+    boolean isForceAnimationForTesting() {
+        return forceAnimationForTesting;
+    }
+
+    private synchronized void attachAwtListener() {
+        if (!awtListenerAttached) {
+            try {
+                Toolkit.getDefaultToolkit().addAWTEventListener(
+                        awtInteractionListener,
+                        AWTEvent.MOUSE_EVENT_MASK | AWTEvent.KEY_EVENT_MASK);
+                awtListenerAttached = true;
+            } catch (Throwable ignored) {}
+        }
+    }
+
+    private synchronized void detachAwtListener() {
+        if (awtListenerAttached) {
+            try {
+                Toolkit.getDefaultToolkit().removeAWTEventListener(awtInteractionListener);
+            } catch (Throwable ignored) {}
+            awtListenerAttached = false;
+        }
+    }
+
+    private void hookDescendants(Component comp) {
+        if (comp == null || comp == this) return;
+        comp.removeMouseListener(descendantMouseListener);
+        comp.addMouseListener(descendantMouseListener);
+        comp.removeKeyListener(descendantKeyListener);
+        comp.addKeyListener(descendantKeyListener);
+        if (comp instanceof Container container) {
+            container.removeContainerListener(descendantContainerListener);
+            container.addContainerListener(descendantContainerListener);
+            for (Component child : container.getComponents()) {
+                hookDescendants(child);
+            }
+        }
+    }
+
+    private void unhookDescendants(Component comp) {
+        if (comp == null || comp == this) return;
+        comp.removeMouseListener(descendantMouseListener);
+        comp.removeKeyListener(descendantKeyListener);
+        if (comp instanceof Container container) {
+            container.removeContainerListener(descendantContainerListener);
+            for (Component child : container.getComponents()) {
+                unhookDescendants(child);
+            }
+        }
+    }
+
+    @Override
+    protected void addImpl(Component comp, Object constraints, int index) {
+        super.addImpl(comp, constraints, index);
+        hookDescendants(comp);
+    }
+
+    @Override
+    public void remove(Component comp) {
+        unhookDescendants(comp);
+        super.remove(comp);
+    }
+
+    @Override
+    public void remove(int index) {
+        if (index >= 0 && index < getComponentCount()) {
+            unhookDescendants(getComponent(index));
+        }
+        super.remove(index);
+    }
+
+    @Override
+    public void removeAll() {
+        for (Component c : getComponents()) {
+            unhookDescendants(c);
+        }
+        super.removeAll();
+    }
+
+    @Override
+    public void removeNotify() {
+        super.removeNotify();
+        detachAwtListener();
+    }
+
+    void flushPendingCallbacks() {
+        if (SwingUtilities.isEventDispatchThread()) {
+            transitionGeneration++;
+            Runnable cb = pendingOnComplete;
+            pendingOnComplete = null;
+            if (cb != null) {
+                cb.run();
+            }
+        } else {
+            try {
+                SwingUtilities.invokeAndWait(() -> {
+                    transitionGeneration++;
+                    Runnable cb = pendingOnComplete;
+                    pendingOnComplete = null;
+                    if (cb != null) {
+                        cb.run();
+                    }
+                });
+            } catch (Exception ignored) {}
+        }
+    }
+
     void showCard(String name) {
         showCard(name, null);
     }
@@ -79,26 +272,41 @@ final class SmoothContentHost extends JPanel {
         // A superseded route must not restore focus for the old destination.
         // Explicit user dismissal still completes its callback through stopTransition().
         cancelTransition();
+        final long currentGen = ++transitionGeneration;
 
         boolean reducedMotion = isReducedMotion();
         boolean canAnimate = !reducedMotion
-                && !GraphicsEnvironment.isHeadless()
-                && isShowing()
-                && getWidth() > 0
-                && getHeight() > 0;
+                && (forceAnimationForTesting || (!GraphicsEnvironment.isHeadless()
+                        && isShowing()
+                        && getWidth() > 0
+                        && getHeight() > 0));
 
         if (!canAnimate) {
             currentCardName = name;
             cardLayout.show(this, name);
             revalidate();
             repaint();
-            if (onComplete != null) onComplete.run();
+            if (onComplete != null) {
+                this.pendingOnComplete = onComplete;
+                final Runnable cb = onComplete;
+                final String targetCard = name;
+                SwingUtilities.invokeLater(() -> {
+                    if (this.transitionGeneration == currentGen
+                            && this.pendingOnComplete == cb
+                            && targetCard.equals(this.currentCardName)) {
+                        this.pendingOnComplete = null;
+                        cb.run();
+                    }
+                });
+            }
             return;
         }
 
         // Capture snapshot of current view for outgoing fade
+        int w = Math.max(1, getWidth());
+        int h = Math.max(1, getHeight());
         try {
-            BufferedImage snapshot = new BufferedImage(getWidth(), getHeight(), BufferedImage.TYPE_INT_ARGB);
+            BufferedImage snapshot = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
             Graphics2D g2 = snapshot.createGraphics();
             paint(g2);
             g2.dispose();
@@ -118,9 +326,20 @@ final class SmoothContentHost extends JPanel {
         repaint();
 
         if (transitionSnapshot != null) {
+            attachAwtListener();
             transitionTimer.start();
         } else if (onComplete != null) {
-            onComplete.run();
+            this.pendingOnComplete = onComplete;
+            final Runnable cb = onComplete;
+            final String targetCard = name;
+            SwingUtilities.invokeLater(() -> {
+                if (this.transitionGeneration == currentGen
+                        && this.pendingOnComplete == cb
+                        && targetCard.equals(this.currentCardName)) {
+                    this.pendingOnComplete = null;
+                    cb.run();
+                }
+            });
         }
     }
 
@@ -128,9 +347,11 @@ final class SmoothContentHost extends JPanel {
         if (transitionTimer.isRunning()) {
             transitionTimer.stop();
         }
+        detachAwtListener();
         transitionSnapshot = null;
         transitionAlpha = 0f;
         transitionStartTime = 0L;
+        transitionGeneration++;
         Runnable cb = pendingOnComplete;
         pendingOnComplete = null;
         repaint();
@@ -143,10 +364,12 @@ final class SmoothContentHost extends JPanel {
         if (transitionTimer.isRunning()) {
             transitionTimer.stop();
         }
+        detachAwtListener();
         transitionSnapshot = null;
         transitionAlpha = 0f;
         transitionStartTime = 0L;
         pendingOnComplete = null;
+        transitionGeneration++;
         repaint();
     }
 
