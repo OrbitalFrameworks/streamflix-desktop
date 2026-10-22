@@ -1,17 +1,22 @@
-Runtime provisioned on first Windows launch: mpv v0.41.0-1012-ge8673660a
-mpv source commit: e8673660ab
-mpv source repository: https://github.com/mpv-player/mpv/tree/e8673660ab
+Runtime provisioned on first Windows launch: mpv build 20261021-e471496c56
+mpv source commit: e471496c56f0f49c133bd88b50aed62b845f1909
+mpv source repository: https://github.com/mpv-player/mpv/tree/e471496c56f0f49c133bd88b50aed62b845f1909
 Windows build project: https://github.com/shinchiro/mpv-winbuild-cmake
-Windows build release: https://github.com/shinchiro/mpv-winbuild-cmake/releases/tag/20260830
+Windows build release: https://github.com/shinchiro/mpv-winbuild-cmake/releases/tag/20261021
 Pinned binary asset:
-https://github.com/shinchiro/mpv-winbuild-cmake/releases/download/20260830/mpv-x86_64-20260830-git-e8673660ab.7z
+https://github.com/shinchiro/mpv-winbuild-cmake/releases/download/20261021/mpv-x86_64-20261021-git-e471496c56.7z
 Archive SHA-256:
-464AB69B2248E7B592F0C27A927FFD1F016F7FA2D6D8B46B1A98254C5F2B670A
+4A355F3E89C83FABC730D33FB4E759DFEC747806ED2287B61A90D1681B83E8D3
 
-GitHub's release metadata for this exact asset publishes the same SHA-256.
+Verified on 2026-10-22: GitHub's official release metadata publishes the same
+SHA-256, and a fresh download from the official URL independently matches it.
+The previous 20260830 release asset became unavailable (HTTP 404). Pre-existing
+verified installs of that build remain valid without forcing another download.
 The Streamflix public ZIP does not contain mpv.exe; the application downloads
 this pinned asset directly from upstream on first Windows launch and verifies
 the digest before installation into %LOCALAPPDATA%\Streamflix\runtime\mpv.
 
 The included mpv Copyright, LICENSE.GPL and LICENSE.LGPL files are copied
-verbatim from the matching mpv source commit for attribution and transparency.
+verbatim from the mpv source for attribution and transparency. On 2026-10-22,
+their SHA-256 values were verified identical between the earlier pinned source
+and commit e471496c56.
