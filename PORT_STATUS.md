@@ -4,7 +4,7 @@ Upstream reference reviewed: `streamflix-reborn2/streamflix` at commit `91b27174
 
 ## Current Windows state
 
-Current public stable release: **1.3.8**.
+Current public stable release: **1.3.9**.
 
 | Area | Status | Notes |
 |---|---|---|
@@ -21,7 +21,7 @@ Current public stable release: **1.3.8**.
 | Playback fallback | Implemented | Multi-provider sequential failover with provider health ranking, quality signals, cooldown heuristics, resume preservation, and server-level ranking |
 | Playback recovery | Implemented | Stall detection, bitrate downgrade and resume |
 | IPTV / Pluto | Implemented | Spain / world IPTV and Pluto MX/ES/US |
-| Sports hub | Implemented in working tree | Free-only multi-source schedules (TheSportsDB + SportScore), auto-refresh, favorites, Home live rail, country-aware multi-broadcaster IPTV resolution, health ranking and signal fallback |
+| Sports hub | Implemented in 1.3.9 | Free-only multi-source schedules (TheSportsDB + SportScore), auto-refresh, favorites, Home live rail, country-aware multi-broadcaster IPTV resolution, health ranking and signal fallback |
 | In-app updates | Implemented in 1.3.6 | GitHub Releases + SHA-256 + rollback-capable portable updater |
 | Persistent image cache | Implemented in 1.3.6 | %LOCALAPPDATA%, bounded and expiring |
 | Diagnostics / logs | Implemented in 1.3.6 | Local rotating log and privacy-filtered diagnostic ZIP |
@@ -60,7 +60,7 @@ and navigation state/motion tests.
 
 ## Remaining audit items
 
-- Re-run the public updater E2E periodically across future release boundaries; the 1.3.6 → 1.3.7 path has already passed.
+- Re-run the public updater E2E periodically across future release boundaries; the 1.3.6 → 1.3.7 portable path has already passed. Installed EXE/MSI users should update by running the newer installer over the previous installation; do not replace Windows Installer-managed application files with the portable updater.
 - Multi-provider VOD fallback allows transparent recovery across registered providers when a single route (e.g. VixSrc) is unavailable or degraded.
 - Some public provider sites can change HTML, domain or anti-bot behavior without notice.
 - `MainFrame` and `EmbeddedPlayerWindow` remain large classes and should be decomposed incrementally, not rewritten wholesale.
