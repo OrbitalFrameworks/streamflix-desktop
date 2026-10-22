@@ -19,7 +19,8 @@ public final class VodSearchCoordinatorTest {
         Provider live = new M3uLiveProvider("live", "Live", "https://example.com/playlist.m3u");
         require(!VodSearchCoordinator.isVodProvider(live), "M3uLiveProvider is not vod provider");
 
-        SportsEvent event = new SportsEvent("ev1", "Match", "Soccer", "League", "Team A", "Team B", null, null, null, null, null);
+        SportsEvent event = new SportsEvent("ev1", "Soccer", "League", "Match", "Team A", "Team B",
+                null, null, null, null, null, null, null, List.of());
         Provider sportsResolved = new SportsResolvedProvider(event, List.of());
         require(!VodSearchCoordinator.isVodProvider(sportsResolved), "SportsResolvedProvider is not vod provider");
 

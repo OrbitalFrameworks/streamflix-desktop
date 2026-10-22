@@ -79,11 +79,15 @@ Deterministic test suites registered in `build.sh` and `build.ps1`:
    - `testMemoryBounding`: Verifies item clamping at `MAX_ITEMS_PER_ENTRY`.
    - `testInvalidateByMode`: Verifies isolated invalidation per mode.
    - `testInvalidateAll`: Verifies full cache flushing.
+   - `testCatalogKeyScopeNormalization`: Verifies non-search scope normalization and search scope differentiation.
    - `testHomeCacheAndHistoryUpdate`: Verifies in-place history updates without remote shelf refetch.
    - `testConcurrency`: Verifies multi-threaded thread-safety under heavy concurrent load.
 
 2. `dev.streamflix.desktop.NavigationStateTest`:
    - `testReducedMotionProperty`: Verifies behavior under `-Dstreamflix.reducedMotion`.
+   - `testTransitionConstants`: Verifies 140ms duration and 16ms frame interval.
    - `testSmoothContentHostInstantCardSwitch`: Verifies card switching and completion callbacks.
    - `testTransitionInterruption`: Verifies interruption safety.
+   - `testSupersededRouteCancellation`: Verifies obsolete route callbacks are canceled upon rapid section switching.
    - `testDetailNavigationStack`: Verifies LIFO unwinding of detail backstack.
+   - `testCardTargetMatching`: Verifies LandscapeCard and HeroPanel target item ID exposure.

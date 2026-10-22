@@ -141,7 +141,14 @@ public final class CatalogRamCacheTest {
     }
 
     private static void testCatalogKeyScopeNormalization() {
-        Provider testProvider = () -> "tmdb-es";
+        Provider testProvider = new Provider() {
+            @Override public String name() { return "tmdb-es"; }
+            @Override public List<Models.ShowItem> movies(int page) { return List.of(); }
+            @Override public List<Models.ShowItem> tvShows(int page) { return List.of(); }
+            @Override public List<Models.ShowItem> search(String query, int page) { return List.of(); }
+            @Override public List<Models.Episode> episodes(Models.ShowItem show) { return List.of(); }
+            @Override public List<Models.Server> servers(String providerItemId) { return List.of(); }
+        };
         CatalogRamCache.CatalogKey k1 = CatalogRamCache.CatalogKey.of(
                 MainFrame.Mode.MOVIES, testProvider, null, "", MainFrame.Mode.HOME);
         CatalogRamCache.CatalogKey k2 = CatalogRamCache.CatalogKey.of(
