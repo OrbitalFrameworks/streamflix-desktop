@@ -6,9 +6,11 @@ import java.util.function.Consumer;
 
 /** Large cinematic home hero using responsive TMDb backdrop artwork. */
 final class HeroPanel extends JLayeredPane {
+    private final Models.ShowItem item;
     private final ArtworkPanel backdrop;
     private final JPanel shade;
     private final JPanel copy;
+    private final JButton playButton;
 
     HeroPanel(Models.ShowItem item, Consumer<Models.ShowItem> onOpen) {
         this(item, onOpen, onOpen);
@@ -17,6 +19,7 @@ final class HeroPanel extends JLayeredPane {
     HeroPanel(Models.ShowItem item,
               Consumer<Models.ShowItem> onPlay,
               Consumer<Models.ShowItem> onOpen) {
+        this.item = item;
         setPreferredSize(new Dimension(1080, 500));
         setMaximumSize(new Dimension(Integer.MAX_VALUE, 500));
         setOpaque(true);
@@ -99,6 +102,7 @@ final class HeroPanel extends JLayeredPane {
 
         JButton play = Theme.primaryButton("Reproducir", StreamflixIcons.Glyph.PLAY);
         play.addActionListener(e -> onPlay.accept(item));
+        this.playButton = play;
         actions.add(play);
 
         JButton open = Theme.button("Más información", StreamflixIcons.Glyph.INFO);
@@ -116,6 +120,18 @@ final class HeroPanel extends JLayeredPane {
         copy.add(actions);
 
         add(copy, Integer.valueOf(2));
+    }
+
+    Models.ShowItem item() {
+        return item;
+    }
+
+    @Override
+    public boolean requestFocusInWindow() {
+        if (playButton != null && playButton.isDisplayable()) {
+            return playButton.requestFocusInWindow();
+        }
+        return super.requestFocusInWindow();
     }
 
     @Override public void doLayout() {

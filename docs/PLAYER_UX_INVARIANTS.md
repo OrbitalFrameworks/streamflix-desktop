@@ -42,3 +42,20 @@ Windowed playback supports:
 - Mini mode anchored near the lower-right usable corner and always on top.
 
 Critical controls (play/pause, mute and fullscreen) remain visible at every supported responsive size.
+
+## 5. Cross-provider playback failover with resume preservation and strict content safety
+
+When initiating VOD playback or recovering from an unrecoverable server failure, Streamflix executes data-driven sequential failover across candidate providers.
+
+Rules:
+- Primary and alternate provider candidates are ranked by local health stats (success rate, latency, cooldown, quality tier, and user language preferences);
+- Loop prevention: each provider candidate is attempted at most once per playback session;
+- Content safety: alternative candidates are strictly verified against target title, release year (tolerance <= 1 yr), show type, and exact season/episode numbers before resolution;
+- Resume preservation: `resumeAtSeconds` is forwarded without loss to the fallback candidate;
+- Real-time status: player window displays honest, reassuring progress during failover (e.g. `Probando PelisflixHD…`);
+- Issue handler recovery: mid-stream errors trigger immediate failover to the next candidate provider.
+
+Regression coverage:
+- ProviderHealthStatsTest
+- ProviderFallbackCoordinatorTest
+- PlaybackFallbackTest

@@ -580,6 +580,14 @@ final class TitleDetailView extends JPanel {
                 : null;
         if (preparingWindow != null) preparingWindow.setPreparing("Buscando la mejor fuente…");
 
+        if (autoPlay && VodSearchCoordinator.isVodProvider(provider)) {
+            List<ProviderFallbackCoordinator.Candidate> candidates =
+                    ProviderFallbackCoordinator.resolveCandidates(
+                            provider, providerItemId, item, episode, ProviderRegistry.all());
+            resolveVodAndPlay(candidates, 0, mediaTitle, playbackRequest, preparingWindow, episode, resumeAtSeconds);
+            return;
+        }
+
         new SwingWorker<List<Models.Server>, Void>() {
             @Override protected List<Models.Server> doInBackground() throws Exception {
                 return PlaybackRecovery.run(() -> provider.servers(providerItemId));
@@ -605,9 +613,16 @@ final class TitleDetailView extends JPanel {
                     ServerPickerMenu.show(invoker, servers, choice -> {
                         EmbeddedPlayerWindow player = configuredPlayer(mediaTitle, episode);
                         if (choice.automatic()) {
-                            resolveAnyAndPlay(
-                                    servers, providerItemId, mediaTitle, playbackRequest,
-                                    player, episode, resumeAtSeconds);
+                            if (VodSearchCoordinator.isVodProvider(provider)) {
+                                List<ProviderFallbackCoordinator.Candidate> candidates =
+                                        ProviderFallbackCoordinator.resolveCandidates(
+                                                provider, providerItemId, item, episode, ProviderRegistry.all());
+                                resolveVodAndPlay(candidates, 0, mediaTitle, playbackRequest, player, episode, resumeAtSeconds);
+                            } else {
+                                resolveAnyAndPlay(
+                                        servers, providerItemId, mediaTitle, playbackRequest,
+                                        player, episode, resumeAtSeconds);
+                            }
                         } else {
                             resolveAndPlay(
                                     choice.server(), providerItemId, mediaTitle, playbackRequest,
@@ -705,6 +720,109 @@ final class TitleDetailView extends JPanel {
                         player.showFailure("No se encontró una fuente compatible. Prueba otra opción.");
                     }
                     status.setText("No se pudo reproducir");
+                }
+            }
+        }.execute();
+    }
+
+    private void resolveVodAndPlay(List<ProviderFallbackCoordinator.Candidate> candidates, int candidateIndex,
+                                   String mediaTitle,
+                                   long playbackRequest, EmbeddedPlayerWindow player,
+                                   Models.Episode episode, double resumeAtSeconds) {
+        if (candidateIndex >= candidates.size()) {
+            if (player.isDisplayable()) {
+                player.showFailure("No se encontró una fuente compatible en ningún proveedor.");
+            }
+            status.setText("No se pudo reproducir en ningún proveedor");
+            return;
+        }
+
+        ProviderFallbackCoordinator.Candidate candidate = candidates.get(candidateIndex);
+        Provider candProvider = candidate.provider();
+        status.setText("Probando " + candProvider.name() + "…");
+        if (player.isDisplayable()) player.setPreparing("Probando " + candProvider.name() + "…");
+
+        new SwingWorker<Models.Server, Void>() {
+            private String resolvedItemId;
+
+            @Override protected Models.Server doInBackground() throws Exception {
+                long startedAt = System.nanoTime();
+                try {
+                    ProviderFallbackCoordinator.Candidate resolved =
+                            ProviderFallbackCoordinator.resolveCandidateTarget(candidate, item, episode);
+                    if (resolved == null || resolved.providerItemId() == null || resolved.providerItemId().isBlank()) {
+                        throw new IllegalStateException("Candidato no disponible en " + candProvider.name());
+                    }
+                    resolvedItemId = resolved.providerItemId();
+
+                    List<Models.Server> servers = PlaybackRecovery.run(() -> candProvider.servers(resolvedItemId));
+                    if (servers == null || servers.isEmpty()) {
+                        throw new IllegalStateException("Sin servidores en " + candProvider.name());
+                    }
+
+                    List<Models.Server> playbackOrder = PlaybackServerStats.rank(servers);
+                    Exception lastServerEx = null;
+                    for (Models.Server server : playbackOrder) {
+                        if (!player.isDisplayable()) throw new CancellationException("Reproductor cerrado.");
+                        player.setPreparing("Probando " + server.name() + " (" + candProvider.name() + ")…");
+                        long serverStartedAt = System.nanoTime();
+                        long[] attemptStartedAt = { serverStartedAt };
+                        try {
+                            Models.Video video = PlaybackRecovery.run(() -> {
+                                attemptStartedAt[0] = System.nanoTime();
+                                Models.Video resolvedVideo = requirePlayable(extractors.resolve(server));
+                                player.start(resolvedVideo, server.name(), playbackRequest, resumeAtSeconds);
+                                return resolvedVideo;
+                            });
+
+                            long elapsed = elapsedMillis(attemptStartedAt[0]);
+                            PlaybackServerStats.recordSuccess(server, elapsed);
+                            ProviderHealthStats.recordSuccess(candProvider.id(), elapsed);
+
+                            player.setPlaybackIssueListener(() -> {
+                                PlaybackServerStats.recordFailure(server, 1);
+                                ProviderHealthStats.recordFailure(candProvider.id(), 1);
+                            });
+
+                            final int nextIndex = candidateIndex + 1;
+                            player.setPlaybackIssueHandler(() -> {
+                                if (nextIndex >= candidates.size()) return false;
+                                double currentResume = Math.max(resumeAtSeconds, player.lastKnownTime());
+                                SwingUtilities.invokeLater(() -> resolveVodAndPlay(
+                                        candidates, nextIndex, mediaTitle, playbackRequest,
+                                        player, episode, currentResume));
+                                return true;
+                            });
+
+                            enrichSubtitlesAsync(resolvedItemId, server, video, player, episode);
+                            return server;
+                        } catch (InterruptedException ex) {
+                            Thread.currentThread().interrupt();
+                            throw ex;
+                        } catch (CancellationException ex) {
+                            throw ex;
+                        } catch (Exception ex) {
+                            PlaybackServerStats.recordFailure(server, elapsedMillis(serverStartedAt));
+                            lastServerEx = ex;
+                        }
+                    }
+                    throw new IllegalStateException("Ninguna fuente de " + candProvider.name() + " pudo reproducir.", lastServerEx);
+                } catch (Exception ex) {
+                    ProviderHealthStats.recordFailure(candProvider.id(), elapsedMillis(startedAt));
+                    throw ex;
+                }
+            }
+
+            @Override protected void done() {
+                try {
+                    Models.Server server = get();
+                    recordOpened(episode);
+                    status.setText("Reproduciendo (" + candProvider.name() + ")");
+                } catch (Exception ex) {
+                    if (!player.isDisplayable()) return;
+                    AppLog.warn("vod-fallback", "Fallo en " + candProvider.name() + ", probando siguiente…");
+                    resolveVodAndPlay(candidates, candidateIndex + 1, mediaTitle, playbackRequest,
+                            player, episode, resumeAtSeconds);
                 }
             }
         }.execute();

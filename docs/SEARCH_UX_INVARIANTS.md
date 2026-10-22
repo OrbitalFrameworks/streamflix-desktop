@@ -58,3 +58,19 @@ Rules:
 Regression coverage:
 - TmdbTitleIndexTest
 - MainFrameSearchTest
+
+## 6. Concurrent multi-provider VOD search with bounded timeouts and canonical deduplication
+
+When searching in Home, Movies, or Series scope, Streamflix fans out concurrent asynchronous queries across all compatible registered VOD providers with a bounded per-provider timeout (4.5s).
+
+Rules:
+- Slow or unresponsive providers are timed out without blocking responsive providers;
+- Results are deduplicated by canonical TMDb ID or normalized semantic key (title + year + type);
+- Richer metadata (TMDb / official posters / ratings) is preserved for the primary display card;
+- Alternative candidate sources are recorded to enable instant sequential playback failover;
+- TV/Live/Sports search remains strictly scoped to its domain;
+- Unconfigured TMDb allows other VOD providers to return results rather than blocking search entirely.
+
+Regression coverage:
+- VodSearchCoordinatorTest
+- ProviderFallbackCoordinatorTest

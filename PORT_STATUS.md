@@ -9,15 +9,16 @@ Current public stable release: **1.3.8**.
 | Area | Status | Notes |
 |---|---|---|
 | Windows desktop UI | Implemented | Swing/JVM, mouse + keyboard, HiDPI-aware |
+| Fluid navigation & RAM cache | Implemented | 140 ms interruptible crossfade, reduced-motion compliance, bounded in-memory catalog/Home cache with TTL, view recycling, backstack for detail views, and scroll/focus preservation |
 | Visual identity / iconography | Implemented in 1.3.8 | Streamflix S app mark, Windows package icon and DPI-independent vector controls replace legacy Unicode glyphs |
-| Movies / Series / Search | Implemented | TMDb EN/ES plus alternative providers |
+| Movies / Series / Search | Implemented | Concurrent multi-provider VOD search across TMDb and all registered VOD providers with bounded timeouts, canonical deduplication, relevance ranking, and candidate tracking |
 | Catalog filters | Implemented | Popular and genre filters with progressive loading |
 | Home rails | Implemented | Contextual horizontal wheel, arrows, Ver más |
 | Seasons / episodes | Implemented | Includes specials and progress-aware episode UI |
 | History / favorites | Implemented | Persistent local data with atomic writes |
 | Continue watching | Implemented | Movie and episode resume |
 | Direct HLS/MP4 playback | Implemented | mpv + JSON IPC; runtime auto-provisioned from a pinned upstream GitHub asset |
-| Playback fallback | Implemented | Startup-aware fallback and local server ranking |
+| Playback fallback | Implemented | Multi-provider sequential failover with provider health ranking, quality signals, cooldown heuristics, resume preservation, and server-level ranking |
 | Playback recovery | Implemented | Stall detection, bitrate downgrade and resume |
 | IPTV / Pluto | Implemented | Spain / world IPTV and Pluto MX/ES/US |
 | Sports hub | Implemented in working tree | Free-only multi-source schedules (TheSportsDB + SportScore), auto-refresh, favorites, Home live rail, country-aware multi-broadcaster IPTV resolution, health ranking and signal fallback |
@@ -43,7 +44,9 @@ Validated on Windows:
 - A real public portable update from 1.3.6 → 1.3.7 completed end to end in an isolated profile: release detection, ZIP download, published SHA-256 match, staged replacement, relaunch into 1.3.7, no rollback directory left behind and no update error log.
 
 Deterministic gates currently include JSON, provider/TMDb/M3U fixtures, extractors, dependency smoke,
-user data, mpv player, playback fallback/server ranking, updater parsing, image disk cache, diagnostics privacy and mpv bootstrap tests.
+user data, mpv player, playback fallback/server ranking, updater parsing, image disk cache, diagnostics privacy,
+mpv bootstrap, concurrent VOD search, provider health stats, playback failover coordinator, catalog RAM cache,
+and navigation state/motion tests.
 
 ## Release engineering
 
@@ -58,7 +61,7 @@ user data, mpv player, playback fallback/server ranking, updater parsing, image 
 ## Remaining audit items
 
 - Re-run the public updater E2E periodically across future release boundaries; the 1.3.6 → 1.3.7 path has already passed.
-- TMDb playback currently has one certified route (VixSrc); independent playback routes would improve resilience.
+- Multi-provider VOD fallback allows transparent recovery across registered providers when a single route (e.g. VixSrc) is unavailable or degraded.
 - Some public provider sites can change HTML, domain or anti-bot behavior without notice.
 - `MainFrame` and `EmbeddedPlayerWindow` remain large classes and should be decomposed incrementally, not rewritten wholesale.
 - More silent provider/extractor fallback catches should be converted to structured diagnostics where doing so does not create noisy logs.

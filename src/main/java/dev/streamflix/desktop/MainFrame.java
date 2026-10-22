@@ -4,7 +4,9 @@ import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.*;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -14,10 +16,17 @@ final class MainFrame extends JFrame {
 
     private final List<Provider> providers;
     private Provider provider;
-    private final JPanel contentStack = new JPanel(new CardLayout());
+    private final SmoothContentHost contentStack = new SmoothContentHost();
     private final JPanel detailHost = new JPanel(new BorderLayout());
     private boolean detailOpen;
     private boolean homeNeedsRefresh;
+    private final CatalogRamCache catalogRamCache = new CatalogRamCache();
+    private record DetailRoute(Provider provider, Models.ShowItem item, boolean autoPlay) {}
+    private final Deque<DetailRoute> detailHistoryStack = new ArrayDeque<>();
+    private Provider currentDetailProvider;
+    private Models.ShowItem currentDetailItem;
+    private Component lastFocusedComponent;
+    private String lastFocusedItemId;
     private final JPanel grid = new JPanel();
     private final JPanel homeRoot = new JPanel();
     private final JPanel pagingBar = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 0));
@@ -327,11 +336,23 @@ final class MainFrame extends JFrame {
         });
 
         detailHost.setBackground(Theme.BG);
-        contentStack.add(homeScroll, Mode.HOME.name());
-        contentStack.add(catalogScroll, "CATALOG");
-        contentStack.add(sportsHub, Mode.SPORTS.name());
-        contentStack.add(detailHost, "DETAIL");
+        contentStack.addCard(homeScroll, Mode.HOME.name());
+        contentStack.addCard(catalogScroll, "CATALOG");
+        contentStack.addCard(sportsHub, Mode.SPORTS.name());
+        contentStack.addCard(detailHost, "DETAIL");
         return contentStack;
+    }
+
+    private CatalogRamCache.CatalogKey currentCatalogKey() {
+        return CatalogRamCache.CatalogKey.of(mode, provider, catalogGenreId, query, searchScope);
+    }
+
+    private void saveCurrentModeScroll() {
+        if (mode == Mode.HOME) {
+            catalogRamCache.updateHomeScroll(TmdbSettings.catalogLanguage(), homeScroll.getVerticalScrollBar().getValue());
+        } else if (mode == Mode.MOVIES || mode == Mode.SERIES || mode == Mode.LIVE || mode == Mode.FAVORITES || mode == Mode.SEARCH) {
+            catalogRamCache.updateScroll(currentCatalogKey(), catalogScroll.getVerticalScrollBar().getValue());
+        }
     }
 
     private void switchMode(Mode newMode) {
@@ -340,7 +361,10 @@ final class MainFrame extends JFrame {
         if (activeWorker != null && !activeWorker.isDone()) activeWorker.cancel(true);
         searchDebounce.stop();
 
+        saveCurrentModeScroll();
+
         detailOpen = false;
+        detailHistoryStack.clear();
         mode = newMode;
         if (newMode != Mode.MOVIES && newMode != Mode.SERIES) {
             catalogGenreId = null;
@@ -349,7 +373,6 @@ final class MainFrame extends JFrame {
         page = 1;
         hasMore = true;
         query = "";
-        loadedItems.clear();
         search.setText("");
 
         if (newMode == Mode.MOVIES) provider = preferredVodProvider(true);
@@ -359,12 +382,48 @@ final class MainFrame extends JFrame {
         updateNavigationState();
         updateHeader();
 
-        if (newMode == Mode.HOME) loadHome();
-        else if (newMode == Mode.SPORTS) {
-            ((CardLayout) contentStack.getLayout()).show(contentStack, Mode.SPORTS.name());
-            sportsHub.search("");
-            sportsHub.activate();
-        } else loadPage(false);
+        if (newMode == Mode.HOME) {
+            CatalogRamCache.HomeEntry cachedHome = catalogRamCache.getHome(TmdbSettings.catalogLanguage());
+            if (cachedHome != null && !cachedHome.isExpired()) {
+                if (homeNeedsRefresh) {
+                    homeNeedsRefresh = false;
+                    List<Models.ShowItem> freshHistory = UserData.getHistory().stream().limit(8).toList();
+                    HomeData updated = catalogRamCache.updateHomeHistory(TmdbSettings.catalogLanguage(), freshHistory);
+                    renderHome(updated != null ? updated : cachedHome.data());
+                } else if (homeRoot.getComponentCount() == 0) {
+                    renderHome(cachedHome.data());
+                }
+                homeScroll.getVerticalScrollBar().setValue(cachedHome.scrollPosition());
+                contentStack.showCard(Mode.HOME.name());
+                status.setText(" ");
+                return;
+            }
+            loadHome();
+        } else if (newMode == Mode.SPORTS) {
+            contentStack.showCard(Mode.SPORTS.name(), () -> {
+                sportsHub.search("");
+                sportsHub.activate();
+            });
+        } else {
+            CatalogRamCache.CatalogKey key = currentCatalogKey();
+            CatalogRamCache.CatalogEntry cached = catalogRamCache.get(key);
+            if (cached != null && !cached.isExpired()) {
+                loadedItems.clear();
+                loadedItems.addAll(cached.items());
+                page = cached.page();
+                hasMore = cached.hasMore();
+                renderCatalog(loadedItems);
+                catalogScroll.getVerticalScrollBar().setValue(cached.scrollPosition());
+                contentStack.showCard("CATALOG");
+                configurePaging(false, false);
+                pageLabel.setText(loadedItems.size() + " cargados");
+                status.setText(" ");
+                setBusy(false, " ");
+                return;
+            }
+            loadedItems.clear();
+            loadPage(false);
+        }
     }
 
     private Provider preferredVodProvider(boolean movies) {
@@ -444,6 +503,7 @@ final class MainFrame extends JFrame {
     }
 
     private void leaveSearch() {
+        saveCurrentModeScroll();
         Mode target = searchScope;
         if (target == Mode.MOVIES || target == Mode.SERIES) {
             openCatalog(target, null, "Popular");
@@ -476,7 +536,7 @@ final class MainFrame extends JFrame {
     }
 
     private void loadHome() {
-        ((CardLayout) contentStack.getLayout()).show(contentStack, Mode.HOME.name());
+        contentStack.showCard(Mode.HOME.name());
         status.setText("Preparando tu inicio…");
         homeRoot.removeAll();
         homeRoot.add(buildHomeSkeleton());
@@ -543,7 +603,10 @@ final class MainFrame extends JFrame {
             @Override protected void done() {
                 if (isCancelled()) return;
                 try {
-                    renderHome(get());
+                    HomeData data = get();
+                    renderHome(data);
+                    catalogRamCache.putHome(
+                            TmdbSettings.catalogLanguage(), data, homeScroll.getVerticalScrollBar().getValue());
                     status.setText(" ");
                 } catch (Exception ex) {
                     renderHomeError(ex.getCause() == null ? ex : ex.getCause());
@@ -890,7 +953,7 @@ final class MainFrame extends JFrame {
     }
 
     private void loadPage(boolean append) {
-        if (!detailOpen) ((CardLayout) contentStack.getLayout()).show(contentStack, "CATALOG");
+        if (!detailOpen) contentStack.showCard("CATALOG");
 
         if (append && !hasMore) return;
         if (activeWorker != null && !activeWorker.isDone()) {
@@ -910,7 +973,7 @@ final class MainFrame extends JFrame {
                 && !loadedItems.isEmpty();
         if (!append && !preserveSearchResults) loadedItems.clear();
 
-        if (requestProvider instanceof TmdbProvider && !tmdbReady()) {
+        if (requestMode != Mode.SEARCH && requestProvider instanceof TmdbProvider && !tmdbReady()) {
             renderTmdbSetup();
             status.setText("TMDb necesita una credencial gratuita");
             configurePaging(false, false);
@@ -935,22 +998,19 @@ final class MainFrame extends JFrame {
                             : requestProvider.tvShows(requestPage);
                     case LIVE -> requestProvider.tvShows(requestPage);
                     case SEARCH -> {
-                        List<Models.ShowItem> results;
-                        if (requestProvider instanceof TmdbProvider tmdb) {
-                            results = switch (requestSearchScope) {
-                                case MOVIES -> tmdb.searchMovies(requestQuery, requestPage);
-                                case SERIES -> tmdb.searchTv(requestQuery, requestPage);
-                                default -> tmdb.search(requestQuery, requestPage);
-                            };
+                        if (requestSearchScope == Mode.LIVE) {
+                            List<Models.ShowItem> results = requestProvider.search(requestQuery, requestPage);
+                            yield filterSearchResults(results, requestSearchScope);
                         } else {
-                            results = requestProvider.search(requestQuery, requestPage);
+                            VodSearchCoordinator.SearchResult searchResult =
+                                    VodSearchCoordinator.search(providers, requestQuery, requestSearchScope, requestPage);
+                            yield searchResult.items();
                         }
-                        yield filterSearchResults(results, requestSearchScope);
                     }
                     case FAVORITES -> UserData.getFavorites();
                     case HOME, SPORTS -> List.of();
                 };
-                return requestMode == Mode.FAVORITES
+                return requestMode == Mode.FAVORITES || requestMode == Mode.SEARCH
                         ? items
                         : withSource(requestProvider, items);
             }
@@ -978,6 +1038,11 @@ final class MainFrame extends JFrame {
                     boolean paged = requestMode == Mode.MOVIES || requestMode == Mode.SERIES
                             || requestMode == Mode.LIVE || requestMode == Mode.SEARCH;
                     hasMore = paged && !items.isEmpty();
+                    if (!incrementalEmpty) {
+                        catalogRamCache.put(
+                                currentCatalogKey(), loadedItems, page, hasMore,
+                                catalogScroll.getVerticalScrollBar().getValue());
+                    }
                     configurePaging(false, false);
                     pageLabel.setText(loadedItems.size() + " cargados");
                     String resultStatus = incrementalEmpty
@@ -1121,6 +1186,9 @@ final class MainFrame extends JFrame {
         new SettingsDialog(this).setVisible(true);
         if (tmdbReady()) TmdbTitleIndex.warmUpTv();
 
+        catalogRamCache.invalidateAll();
+        homeRoot.removeAll();
+
         if (mode == Mode.HOME) {
             provider = preferredVodProvider(true);
             loadHome();
@@ -1237,10 +1305,20 @@ final class MainFrame extends JFrame {
     private void openDetails(Provider itemProvider, Models.ShowItem item, boolean autoPlay) {
         if (itemProvider == null) throw new IllegalArgumentException("Provider requerido");
 
-        // Establish the detail route before mutating the catalog header. This keeps
-        // the card activation gesture independent from filter visibility updates.
+        // Save current focus and scroll before opening details
+        if (!detailOpen) {
+            lastFocusedComponent = KeyboardFocusManager.getCurrentKeyboardFocusManager().getFocusOwner();
+            lastFocusedItemId = item.id();
+            saveCurrentModeScroll();
+            detailHistoryStack.clear();
+        } else if (currentDetailProvider != null && currentDetailItem != null) {
+            detailHistoryStack.push(new DetailRoute(currentDetailProvider, currentDetailItem, autoPlay));
+        }
+
+        currentDetailProvider = itemProvider;
+        currentDetailItem = item;
         detailOpen = true;
-        ((CardLayout) contentStack.getLayout()).show(contentStack, "DETAIL");
+
         detailHost.removeAll();
         detailHost.add(new TitleDetailView(
                 this,
@@ -1254,18 +1332,48 @@ final class MainFrame extends JFrame {
         detailHost.revalidate();
         detailHost.repaint();
 
+        contentStack.showCard("DETAIL");
         sectionHeaderPanel.setVisible(false);
     }
 
     private void closeDetails() {
         if (!detailOpen) return;
+
+        if (!detailHistoryStack.isEmpty()) {
+            DetailRoute prev = detailHistoryStack.pop();
+            currentDetailProvider = prev.provider();
+            currentDetailItem = prev.item();
+            detailHost.removeAll();
+            detailHost.add(new TitleDetailView(
+                    this,
+                    prev.provider(),
+                    prev.item(),
+                    this::closeDetails,
+                    prev.autoPlay(),
+                    () -> homeNeedsRefresh = true,
+                    this::openDetails
+            ), BorderLayout.CENTER);
+            detailHost.revalidate();
+            detailHost.repaint();
+            contentStack.showCard("DETAIL");
+            return;
+        }
+
         detailOpen = false;
+        currentDetailProvider = null;
+        currentDetailItem = null;
         updateHeader();
 
         if (mode == Mode.HOME && homeNeedsRefresh) {
             homeNeedsRefresh = false;
-            loadHome();
-            return;
+            List<Models.ShowItem> freshHistory = UserData.getHistory().stream().limit(8).toList();
+            HomeData updated = catalogRamCache.updateHomeHistory(TmdbSettings.catalogLanguage(), freshHistory);
+            if (updated != null) {
+                renderHome(updated);
+            } else {
+                loadHome();
+                return;
+            }
         }
 
         String destination = switch (mode) {
@@ -1273,7 +1381,61 @@ final class MainFrame extends JFrame {
             case SPORTS -> Mode.SPORTS.name();
             default -> "CATALOG";
         };
-        ((CardLayout) contentStack.getLayout()).show(contentStack, destination);
+
+        if (mode == Mode.HOME) {
+            int savedScroll = catalogRamCache.getHomeScroll(TmdbSettings.catalogLanguage());
+            homeScroll.getVerticalScrollBar().setValue(savedScroll);
+        } else if (destination.equals("CATALOG")) {
+            CatalogRamCache.CatalogEntry cached = catalogRamCache.get(currentCatalogKey());
+            if (cached != null) {
+                catalogScroll.getVerticalScrollBar().setValue(cached.scrollPosition());
+            }
+        }
+
+        contentStack.showCard(destination, this::restoreFocusAfterDetails);
+    }
+
+    private void restoreFocusAfterDetails() {
+        SwingUtilities.invokeLater(() -> {
+            if (lastFocusedComponent != null && lastFocusedComponent.isDisplayable() && lastFocusedComponent.isShowing()) {
+                lastFocusedComponent.requestFocusInWindow();
+                return;
+            }
+            if (lastFocusedItemId != null) {
+                if (focusCardInContainer(grid, lastFocusedItemId)) return;
+                if (focusCardInContainer(homeRoot, lastFocusedItemId)) return;
+            }
+            JButton activeBtn = switch (mode) {
+                case HOME -> homeButton;
+                case MOVIES -> moviesButton;
+                case SERIES -> seriesButton;
+                case LIVE -> liveButton;
+                case SPORTS -> sportsButton;
+                case FAVORITES -> favoritesButton;
+                default -> null;
+            };
+            if (activeBtn != null && activeBtn.isDisplayable()) {
+                activeBtn.requestFocusInWindow();
+            }
+        });
+    }
+
+    private static boolean focusCardInContainer(Container container, String targetId) {
+        if (container == null || targetId == null) return false;
+        for (Component c : container.getComponents()) {
+            if (c instanceof LandscapeCard card && card.item() != null && targetId.equals(card.item().id())) {
+                card.requestFocusInWindow();
+                return true;
+            }
+            if (c instanceof HeroPanel hero && hero.item() != null && targetId.equals(hero.item().id())) {
+                hero.requestFocusInWindow();
+                return true;
+            }
+            if (c instanceof Container sub) {
+                if (focusCardInContainer(sub, targetId)) return true;
+            }
+        }
+        return false;
     }
 
     private void rebuildGridColumns() {
@@ -1318,7 +1480,10 @@ final class MainFrame extends JFrame {
         if (activeWorker != null && !activeWorker.isDone()) activeWorker.cancel(true);
         searchDebounce.stop();
 
+        saveCurrentModeScroll();
+
         detailOpen = false;
+        detailHistoryStack.clear();
         mode = targetMode;
         provider = preferredVodProvider(targetMode == Mode.MOVIES);
         catalogGenreId = genreId;
@@ -1326,11 +1491,29 @@ final class MainFrame extends JFrame {
         page = 1;
         hasMore = true;
         query = "";
-        loadedItems.clear();
         search.setText("");
 
         updateNavigationState();
         updateHeader();
+
+        CatalogRamCache.CatalogKey key = currentCatalogKey();
+        CatalogRamCache.CatalogEntry cached = catalogRamCache.get(key);
+        if (cached != null && !cached.isExpired()) {
+            loadedItems.clear();
+            loadedItems.addAll(cached.items());
+            page = cached.page();
+            hasMore = cached.hasMore();
+            renderCatalog(loadedItems);
+            catalogScroll.getVerticalScrollBar().setValue(cached.scrollPosition());
+            contentStack.showCard("CATALOG");
+            configurePaging(false, false);
+            pageLabel.setText(loadedItems.size() + " cargados");
+            status.setText(" ");
+            setBusy(false, " ");
+            return;
+        }
+
+        loadedItems.clear();
         loadPage(false);
         SwingUtilities.invokeLater(() -> catalogScroll.getVerticalScrollBar().setValue(0));
     }
@@ -1497,7 +1680,7 @@ final class MainFrame extends JFrame {
 
     private record GenreFilter(String label, Integer genreId) {}
 
-    private record HomeShelf(
+    record HomeShelf(
             Mode mode,
             Integer genreId,
             String title,
@@ -1505,14 +1688,18 @@ final class MainFrame extends JFrame {
             List<Models.ShowItem> items
     ) {}
 
-    private record HomeData(
+    record HomeData(
             List<Models.ShowItem> history,
             List<Models.ShowItem> movies,
             List<Models.ShowItem> series,
             List<Models.ShowItem> live,
             SportsSnapshot sports,
             List<HomeShelf> discovery
-    ) {}
+    ) {
+        HomeData withHistory(List<Models.ShowItem> newHistory) {
+            return new HomeData(newHistory, movies, series, live, sports, discovery);
+        }
+    }
 
     private static String escapeHtml(String value) {
         if (value == null) return "";

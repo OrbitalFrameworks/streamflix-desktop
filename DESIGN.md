@@ -113,3 +113,12 @@ The brand mark supplies personality; control icons stay neutral. Do not generate
 - Focus, progress, loading, selected, and error states never rely on color alone.
 - Search remains enabled and focused during background work; Escape returns to its originating section.
 - Small desktop windows preserve critical playback actions and do not clip hero copy behind fixed minimum-width overlays.
+
+## Motion & Transition Invariants
+
+- Navigation transitions between sections (Home, Movies, Series, Live, Sports, Details) use a subtle, interruptible 140 ms crossfade driven by 16 ms timer intervals without blocking the EDT. Interactive 60 fps smoothness depends on native display hardware and is tracked as native validation debt.
+- Reduced motion: when `win.animations.enabled` is false or `streamflix.reducedMotion` is active, transition duration is 0 ms (instant switch).
+- Interactivity is immediate: clicking during a transition terminates the animation instantly.
+- State preservation: vertical scroll position, active filters, search inputs, and keyboard focus are preserved across tab switches and detail view round-trips.
+- RAM caching: catalog and Home data are cached in a bounded, thread-safe in-memory cache (5-minute TTL, LRU eviction) to eliminate redundant network round-trips and skeleton flickering.
+- Detailed navigation and caching invariants are documented in [`docs/NAVIGATION_UX_INVARIANTS.md`](docs/NAVIGATION_UX_INVARIANTS.md).

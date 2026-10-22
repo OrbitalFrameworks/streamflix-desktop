@@ -388,6 +388,10 @@ final class EmbeddedPlayerWindow extends JFrame {
         this.playbackIssueHandler = handler == null ? () -> false : handler;
     }
 
+    double lastKnownTime() {
+        return lastKnownTime;
+    }
+
     static boolean simulateSignalFailureForDiagnostics() {
         EmbeddedPlayerWindow window = activeWindow;
         if (window == null || !window.isDisplayable() || window.currentVideo == null) return false;
