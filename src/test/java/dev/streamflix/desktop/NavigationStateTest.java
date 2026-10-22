@@ -43,13 +43,21 @@ public final class NavigationStateTest {
         host.addCard(new JPanel(), "B");
         host.addCard(new JPanel(), "C");
 
-        host.showCard("A");
         AtomicBoolean bCompleted = new AtomicBoolean(false);
         AtomicBoolean cCompleted = new AtomicBoolean(false);
 
-        // Switch to B, then immediately switch to C before B finishes
-        host.showCard("B", () -> bCompleted.set(true));
-        host.showCard("C", () -> cCompleted.set(true));
+        // All Swing route transitions belong on the EDT. Keep B -> C in a
+        // single event so an invokeLater completion for B cannot run between
+        // two off-EDT calls and produce a scheduling-dependent false failure.
+        try {
+            SwingUtilities.invokeAndWait(() -> {
+                host.showCard("A");
+                host.showCard("B", () -> bCompleted.set(true));
+                host.showCard("C", () -> cCompleted.set(true));
+            });
+        } catch (Exception e) {
+            throw new AssertionError("Could not run navigation fixture on EDT", e);
+        }
         drainEdt();
         check("C".equals(host.currentCard()), "Host must be on C");
         check(!bCompleted.get(), "Superseded route B callback must NOT be executed");
