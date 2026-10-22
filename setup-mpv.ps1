@@ -4,8 +4,8 @@ Set-Location $PSScriptRoot
 $target = Join-Path $PSScriptRoot "tools\mpv"
 $archive = Join-Path $target "mpv.7z"
 $partial = "$archive.part"
-$url = "https://github.com/shinchiro/mpv-winbuild-cmake/releases/download/20260830/mpv-x86_64-20260830-git-e8673660ab.7z"
-$expectedSha256 = "464AB69B2248E7B592F0C27A927FFD1F016F7FA2D6D8B46B1A98254C5F2B670A"
+$url = "https://github.com/shinchiro/mpv-winbuild-cmake/releases/download/20261021/mpv-x86_64-20261021-git-e471496c56.7z"
+$expectedSha256 = "4A355F3E89C83FABC730D33FB4E759DFEC747806ED2287B61A90D1681B83E8D3"
 
 New-Item $target -ItemType Directory -Force | Out-Null
 

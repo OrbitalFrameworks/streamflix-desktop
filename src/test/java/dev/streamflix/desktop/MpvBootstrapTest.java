@@ -18,6 +18,9 @@ public final class MpvBootstrapTest {
             Files.write(MpvBootstrap.executablePath(), new byte[] {1});
             Files.writeString(root.resolve("VERSION"), MpvBootstrap.BUILD_ID);
             check(MpvBootstrap.managedRuntimeReady(), "matching runtime ready");
+            Files.writeString(root.resolve("VERSION"), MpvBootstrap.PREVIOUS_VERIFIED_BUILD_ID);
+            check(MpvBootstrap.managedRuntimeReady(), "previously verified runtime retained for offline updates");
+            Files.writeString(root.resolve("VERSION"), MpvBootstrap.BUILD_ID);
             AtomicReference<Boolean> ready = new AtomicReference<>();
             MpvBootstrap.ensureReady(null, ready::set);
             check(Boolean.TRUE.equals(ready.get()), "ready callback allows playback");

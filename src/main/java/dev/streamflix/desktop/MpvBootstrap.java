@@ -22,12 +22,16 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 final class MpvBootstrap {
-    static final String BUILD_ID = "20260830-e8673660ab";
+    static final String BUILD_ID = "20261021-e471496c56";
+    // Keep already-provisioned verified runtimes usable after app updates;
+    // upstream daily release assets may be removed, but installed binaries
+    // remain valid offline. Only fresh installations fetch the new pinned one.
+    static final String PREVIOUS_VERIFIED_BUILD_ID = "20260830-e8673660ab";
     static final URI DOWNLOAD_URI = URI.create(
-            "https://github.com/shinchiro/mpv-winbuild-cmake/releases/download/20260830/"
-                    + "mpv-x86_64-20260830-git-e8673660ab.7z");
+            "https://github.com/shinchiro/mpv-winbuild-cmake/releases/download/20261021/"
+                    + "mpv-x86_64-20261021-git-e471496c56.7z");
     static final String ARCHIVE_SHA256 =
-            "464AB69B2248E7B592F0C27A927FFD1F016F7FA2D6D8B46B1A98254C5F2B670A";
+            "4A355F3E89C83FABC730D33FB4E759DFEC747806ED2287B61A90D1681B83E8D3";
     private static final String RUNTIME_DIR_PROPERTY = "streamflix.mpv.dir";
     private static final HttpClient HTTP = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(20))
@@ -59,7 +63,8 @@ final class MpvBootstrap {
         Path version = runtimeDir().resolve("VERSION");
         if (!Files.isRegularFile(executable) || !Files.isRegularFile(version)) return false;
         try {
-            return BUILD_ID.equals(Files.readString(version, StandardCharsets.UTF_8).strip());
+            String installedBuild = Files.readString(version, StandardCharsets.UTF_8).strip();
+            return BUILD_ID.equals(installedBuild) || PREVIOUS_VERIFIED_BUILD_ID.equals(installedBuild);
         } catch (IOException ignored) {
             return false;
         }

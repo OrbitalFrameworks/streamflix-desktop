@@ -15,9 +15,9 @@ Third-party dependencies and runtime components include:
   - License: MIT
 - **TwelveMonkeys ImageIO 3.12.0** (imageio-webp, core/metadata/common modules)
   - License: BSD
-- **mpv** (`e8673660ab` Windows runtime)
-  - mpv source: https://github.com/mpv-player/mpv/tree/e8673660ab
-  - Windows build release: https://github.com/shinchiro/mpv-winbuild-cmake/releases/tag/20260830
+- **mpv** (`e471496c56` Windows runtime)
+  - mpv source: https://github.com/mpv-player/mpv/tree/e471496c56f0f49c133bd88b50aed62b845f1909
+  - Windows build release: https://github.com/shinchiro/mpv-winbuild-cmake/releases/tag/20261021
   - The Streamflix public ZIP does **not** redistribute `mpv.exe`. On first Windows launch, Streamflix downloads the pinned upstream binary asset directly, verifies its SHA-256 and stores it under `%LOCALAPPDATA%\Streamflix\runtime\mpv`.
   - Exact asset provenance and SHA-256 are documented in `third_party/mpv/SOURCE.txt`.
   - Matching mpv `Copyright`, `LICENSE.GPL` and `LICENSE.LGPL` texts are retained under `third_party/mpv/` for attribution and transparency.
