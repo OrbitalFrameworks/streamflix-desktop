@@ -15,9 +15,9 @@ You can also browse versioned releases and checksums on the [GitHub Releases pag
 
 ## Current stable release
 
-Version: **1.3.8**
+Version: **1.3.9**
 
-The current stable release is **1.3.8**, adding the approved Streamflix visual identity and a coherent vector icon system on top of the 1.3.7 reliability/player/search foundation. The Windows app, taskbar/window surfaces and release packages now use the Streamflix S mark; legacy Unicode control glyphs were replaced with DPI-independent vector icons, including a corrected Settings gear.
+The current stable release is **1.3.9**, adding fluid native navigation with short interruptible transitions, bounded RAM caching for catalog/Home views, unified multi-provider VOD search, ranked provider failover and the Sports Hub. The build also updates the verified upstream mpv provisioning URL after its previous pinned asset was removed. Streamflix's visual identity and vector icon system from 1.3.8 remain intact.
 
 ### Core experience
 
@@ -213,7 +213,8 @@ Additional opt-in live gates validate real third-party/network behavior and are 
 - Some upstream providers rely on unstable public websites and may require maintenance after domain/HTML changes.
 - Chromecast/casting parity is not included in the Windows release.
 - Supabase/user-profile sync from Android is intentionally not included; the desktop app has no Streamflix login requirement.
-- The portable updater requires a normal writable portable installation. A real public 1.3.6 → 1.3.7 update was validated end to end with SHA-256 verification, replacement, relaunch and no rollback/error log.
+- **Updating an existing installation:** In Settings → Buscar actualizaciones, writable portable installations can download, verify (SHA-256) and replace the app automatically. For installations created by the EXE/MSI installer, the current updater opens the new GitHub release instead of silently overwriting Windows Installer-managed files; run the newer installer over the previous installation. User settings, favorites, history and the locally provisioned mpv runtime remain in separate profile folders and are not removed by the app update. Do not manually uninstall first.
+- A real public portable 1.3.6 → 1.3.7 update was validated end to end with SHA-256 verification, replacement, relaunch and no rollback/error log. Windows installer upgrades have not been separately validated for the 1.3.8 → 1.3.9 transition.
 - First playback setup requires network access to the pinned upstream mpv GitHub release; once provisioned, the runtime is reused from `%LOCALAPPDATA%`.
 - DRM/paywall bypass is intentionally out of scope.
 - Sports availability remains best-effort: free public schedules and third-party IPTV streams can be incomplete, geo-restricted, stale or unavailable, and Streamflix does not bypass DRM or subscription access.
