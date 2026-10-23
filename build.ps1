@@ -56,6 +56,18 @@ foreach ($test in @('JsonTest','ProviderFixtureTest','TmdbFixtureTest','TmdbTitl
     Invoke-Checked $java @('-cp','build\streamflix-desktop.jar;build\test-classes',"dev.streamflix.desktop.$test")
 }
 Write-Host 'JAR OK: build\streamflix-desktop.jar (keep sibling build\lib directory)'
+# Native GUI evaluation only on temporary GitHub Actions branch.
+if ($env:GITHUB_ACTIONS -eq 'true' -and $env:RUNNER_OS -eq 'Windows' -and
+    $env:GITHUB_REF_NAME -like 'test/windows-native-gui-e2e-*') {
+    Write-Host 'Evaluating actual Windows desktop rendering'
+    & .\setup-mpv.ps1
+    if ($LASTEXITCODE -ne 0) { throw "Pinned mpv setup failed: $LASTEXITCODE" }
+    $env:STREAMFLIX_MPV = (Resolve-Path 'tools\mpv\mpv.exe').Path
+    $env:STREAMFLIX_E2E_MEDIA = 'av://lavfi:testsrc2=size=640x360:rate=24'
+    Invoke-Checked $java @('-Dstreamflix.e2e.output=build\windows-gui-e2e',
+        '-cp','build\streamflix-desktop.jar;build\test-classes',
+        'dev.streamflix.desktop.WindowsNativeGuiE2E')
+}
 if ($JarOnly) { return }
 $mpvExe = Join-Path $PSScriptRoot 'tools\mpv\mpv.exe'
 if ($env:STREAMFLIX_MPV) { $mpvExe = $env:STREAMFLIX_MPV }
