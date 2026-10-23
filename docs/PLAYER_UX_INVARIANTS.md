@@ -58,4 +58,17 @@ Rules:
 Regression coverage:
 - ProviderHealthStatsTest
 - ProviderFallbackCoordinatorTest
+
+## 6. In-Frame Embedded Playback as Default
+
+Playback occurs directly inside `MainFrame`'s `contentStack` under the `PLAYER` route by default.
+- Selecting Play replaces the MainFrame content view with `EmbeddedPlayerView` without opening a secondary window or tab;
+- Hitting Escape or clicking 'Volver a Streamflix' smoothly returns to the origin (Detail, Catalog, or Sports) with scroll position, season/episode selections, and focus preserved without refetching;
+- Fullscreen applies directly to `MainFrame`, keeping controls as overlays that auto-hide without resizing the native video Canvas;
+- Standalone/pop-out player exists only as an explicit secondary action;
+- Native video surface, lifecycle, keyboard controls, and cleanup are managed with zero duplicate playback sessions.
+
+Regression coverage:
+- EmbeddedPlayerIntegrationTest
+- MpvPlayerTest
 - PlaybackFallbackTest

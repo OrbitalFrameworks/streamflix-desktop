@@ -17,7 +17,7 @@ Current public stable release: **1.3.9**.
 | Seasons / episodes | Implemented | Includes specials and progress-aware episode UI |
 | History / favorites | Implemented | Persistent local data with atomic writes |
 | Continue watching | Implemented | Movie and episode resume |
-| Direct HLS/MP4 playback | Implemented | mpv + JSON IPC; runtime auto-provisioned from a pinned upstream GitHub asset |
+| Direct HLS/MP4 playback | Implemented | In-frame embedded player in MainFrame without secondary windows, full overlay controls without resize flash, mpv + JSON IPC, runtime auto-provisioned from pinned upstream release, and explicit pop-out mode |
 | Playback fallback | Implemented | Multi-provider sequential failover with provider health ranking, quality signals, cooldown heuristics, resume preservation, and server-level ranking |
 | Playback recovery | Implemented | Stall detection, bitrate downgrade and resume |
 | IPTV / Pluto | Implemented | Spain / world IPTV and Pluto MX/ES/US |
@@ -46,7 +46,7 @@ Validated on Windows:
 Deterministic gates currently include JSON, provider/TMDb/M3U fixtures, extractors, dependency smoke,
 user data, mpv player, playback fallback/server ranking, updater parsing, image disk cache, diagnostics privacy,
 mpv bootstrap, concurrent VOD search, provider health stats, playback failover coordinator, catalog RAM cache,
-and navigation state/motion tests.
+navigation state/motion tests, and embedded player integration tests.
 
 ## Release engineering
 
