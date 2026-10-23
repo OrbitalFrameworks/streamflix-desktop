@@ -643,7 +643,7 @@ final class MainFrame extends JFrame {
         container.setOpaque(false);
         container.setBorder(new EmptyBorder(60, 34, 60, 34));
 
-        JPanel card = Theme.surface();
+        JPanel card = Theme.cardPanel();
         card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
         card.setPreferredSize(new Dimension(560, 160));
         card.setMaximumSize(new Dimension(560, 160));
@@ -662,9 +662,9 @@ final class MainFrame extends JFrame {
         progress.setBackground(Theme.PANEL_ALT);
 
         card.add(heading);
-        card.add(Box.createVerticalStrut(10));
+        card.add(Box.createVerticalStrut(Theme.SPACE_2 + 2));
         card.add(body);
-        card.add(Box.createVerticalStrut(18));
+        card.add(Box.createVerticalStrut(Theme.SPACE_4 + 2));
         card.add(progress);
 
         container.add(card);
@@ -1187,27 +1187,7 @@ final class MainFrame extends JFrame {
     }
 
     private JComponent stateCard(String title, String message, String actionText, Runnable action) {
-        JPanel card = Theme.surface();
-        card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
-        card.setPreferredSize(new Dimension(560, 180));
-
-        JLabel heading = Theme.heading(title, 20f);
-        heading.setAlignmentX(Component.LEFT_ALIGNMENT);
-        JLabel body = Theme.muted("<html><body style='width:455px'>" + escapeHtml(message) + "</body></html>");
-        body.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        card.add(heading);
-        card.add(Box.createVerticalStrut(9));
-        card.add(body);
-
-        if (actionText != null && action != null) {
-            card.add(Box.createVerticalStrut(18));
-            JButton actionButton = Theme.primaryButton(actionText);
-            actionButton.setAlignmentX(Component.LEFT_ALIGNMENT);
-            actionButton.addActionListener(e -> action.run());
-            card.add(actionButton);
-        }
-        return card;
+        return Theme.stateCard(title, escapeHtml(message), actionText, action);
     }
 
     private void maybeLoadMore() {

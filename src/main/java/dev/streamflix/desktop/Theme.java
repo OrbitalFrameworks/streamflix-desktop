@@ -187,12 +187,58 @@ final class Theme {
     }
 
     static JPanel surface() {
-        JPanel p = new JPanel();
-        p.setBackground(PANEL);
-        p.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(BORDER),
-                new EmptyBorder(16, 16, 16, 16)));
+        return cardPanel(PANEL, BORDER, RADIUS_CONTROL, SPACE_4);
+    }
+
+    static JPanel cardPanel() {
+        return cardPanel(PANEL, BORDER, RADIUS_CONTROL, SPACE_4 + SPACE_2);
+    }
+
+    static JPanel cardPanel(Color bg, Color border, int radius, int padding) {
+        JPanel p = new JPanel() {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                try {
+                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                    g2.setColor(bg);
+                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), radius, radius);
+                    if (border != null) {
+                        g2.setColor(border);
+                        g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, radius, radius);
+                    }
+                } finally {
+                    g2.dispose();
+                }
+            }
+        };
+        p.setOpaque(false);
+        p.setBorder(new EmptyBorder(padding, padding, padding, padding));
         return p;
+    }
+
+    static JPanel stateCard(String title, String message, String actionText, Runnable action) {
+        JPanel card = cardPanel(PANEL, BORDER, RADIUS_CONTROL, SPACE_4 + SPACE_2);
+        card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
+        card.setPreferredSize(new Dimension(560, 180));
+        card.setMaximumSize(new Dimension(560, 180));
+
+        JLabel heading = heading(title, 20f);
+        heading.setAlignmentX(Component.LEFT_ALIGNMENT);
+        JLabel body = muted("<html><body style='width:455px'>" + (message != null ? message : "") + "</body></html>");
+        body.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        card.add(heading);
+        card.add(Box.createVerticalStrut(SPACE_2 + 1));
+        card.add(body);
+
+        if (actionText != null && action != null) {
+            card.add(Box.createVerticalStrut(SPACE_4 + 2));
+            JButton actionButton = primaryButton(actionText);
+            actionButton.setAlignmentX(Component.LEFT_ALIGNMENT);
+            actionButton.addActionListener(e -> action.run());
+            card.add(actionButton);
+        }
+        return card;
     }
 
     private static final class FlatButton extends JButton {
