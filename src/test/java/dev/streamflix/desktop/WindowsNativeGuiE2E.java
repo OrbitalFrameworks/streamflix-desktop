@@ -53,6 +53,22 @@ public final class WindowsNativeGuiE2E {
         for (int y = 0; y < img.getHeight(); y += 9)
             for (int x = 0; x < img.getWidth(); x += 9) sampled.add(img.getRGB(x, y));
         ImageIO.write(img, "png", OUT.resolve(name + ".png").toFile());
+        // Evidence is transported through CI logs, because branch CI has no artifact upload step.
+        // The preview is derived from actual OS Robot pixels, not an application paint mock.
+        int width = Math.min(img.getWidth(), 900);
+        int height = Math.max(1, img.getHeight() * width / img.getWidth());
+        BufferedImage preview = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g = preview.createGraphics();
+        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+        g.drawImage(img, 0, 0, width, height, null);
+        g.dispose();
+        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+        ImageIO.write(preview, "jpg", out);
+        String data = Base64.getEncoder().encodeToString(out.toByteArray());
+        System.out.println("E2E_SCREENSHOT_BEGIN|" + name + "|" + data.length());
+        for (int idx = 0; idx < data.length(); idx += 2048)
+            System.out.println("E2E_SCREENSHOT_CHUNK|" + name + "|" + data.substring(idx, Math.min(idx + 2048, data.length())));
+        System.out.println("E2E_SCREENSHOT_END|" + name);
         verify(sampled.size() > 40, name + " real desktop screenshot has varied pixels: " + sampled.size());
         log("CAPTURE " + name + " " + bounds.width + "x" + bounds.height);
     }
