@@ -57,22 +57,26 @@ final class SettingsDialog extends JDialog {
         root.add(header, BorderLayout.NORTH);
 
         JTabbedPane tabs = new JTabbedPane();
+        tabs.getAccessibleContext().setAccessibleName("Secciones de configuración");
+        tabs.getAccessibleContext().setAccessibleDescription(
+                "Cambia entre preferencias generales, reproductor, catálogo y datos locales.");
         tabs.setBorder(new EmptyBorder(18, 0, 12, 0));
-        tabs.addTab("General", buildGeneralPanel());
-        tabs.addTab("Reproductor", buildPlayerPanel());
-        tabs.addTab("TMDb", buildTmdbPanel());
-        tabs.addTab("Fuentes", buildSourcesPanel());
-        tabs.addTab("Datos", buildDataPanel());
+        addTab(tabs, "General", 'G', "Idioma y comportamiento de inicio", buildGeneralPanel());
+        addTab(tabs, "Reproductor", 'R', "Preferencias de reproducción", buildPlayerPanel());
+        addTab(tabs, "TMDb", 'T', "Credencial y catálogo de TMDb", buildTmdbPanel());
+        addTab(tabs, "Fuentes", 'F', "Estado de las fuentes disponibles", buildSourcesPanel());
+        addTab(tabs, "Datos", 'D', "Historial y títulos guardados localmente", buildDataPanel());
         if (Boolean.getBoolean("streamflix.dev")) {
-            tabs.addTab("Diagnóstico", buildDiagnosticsPanel());
+            addTab(tabs, "Diagnóstico", 'I', "Herramientas de desarrollo", buildDiagnosticsPanel());
         }
-        tabs.addTab("Acerca de", buildAboutPanel());
+        addTab(tabs, "Acerca de", 'A', "Información de Streamflix Desktop", buildAboutPanel());
         root.add(tabs, BorderLayout.CENTER);
 
         JPanel footer = new JPanel(new BorderLayout(12, 0));
         footer.setOpaque(false);
 
         status.setFont(Theme.FONT.deriveFont(12f));
+        status.getAccessibleContext().setAccessibleName("Estado de configuración");
         footer.add(status, BorderLayout.CENTER);
 
         JPanel footerActions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
@@ -86,6 +90,26 @@ final class SettingsDialog extends JDialog {
 
         root.add(footer, BorderLayout.SOUTH);
         return root;
+    }
+
+    private void addTab(JTabbedPane tabs, String title, int mnemonic, String description, JComponent content) {
+        tabs.addTab(title, scrollable(content));
+        int index = tabs.getTabCount() - 1;
+        tabs.setMnemonicAt(index, mnemonic);
+        tabs.setToolTipTextAt(index, description);
+        tabs.getComponentAt(index).getAccessibleContext().setAccessibleDescription(description);
+    }
+
+    /** Keeps every settings section usable when the dialog is resized below its ideal height. */
+    private JComponent scrollable(JComponent content) {
+        if (content instanceof JScrollPane) return content;
+        JScrollPane scroll = new JScrollPane(content,
+                ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED,
+                ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        scroll.setBorder(null);
+        scroll.getViewport().setBackground(Theme.BG);
+        scroll.getVerticalScrollBar().setUnitIncrement(Theme.SPACE_4 + Theme.SPACE_2);
+        return scroll;
     }
 
     private JComponent buildGeneralPanel() {

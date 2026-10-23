@@ -575,7 +575,7 @@ final class TitleDetailView extends JPanel {
         long playbackRequest = MpvPlayer.beginRequest();
         status.setText(autoPlay ? "Preparando reproducción…" : "Buscando fuentes…");
 
-        EmbeddedPlayerWindow preparingWindow = autoPlay
+        EmbeddedPlayerView preparingWindow = autoPlay
                 ? configuredPlayer(mediaTitle, episode)
                 : null;
         if (preparingWindow != null) preparingWindow.setPreparing("Buscando la mejor fuente…");
@@ -611,7 +611,7 @@ final class TitleDetailView extends JPanel {
 
                     Component invoker = manualInvoker != null ? manualInvoker : TitleDetailView.this;
                     ServerPickerMenu.show(invoker, servers, choice -> {
-                        EmbeddedPlayerWindow player = configuredPlayer(mediaTitle, episode);
+                        EmbeddedPlayerView player = configuredPlayer(mediaTitle, episode);
                         if (choice.automatic()) {
                             if (VodSearchCoordinator.isVodProvider(provider)) {
                                 List<ProviderFallbackCoordinator.Candidate> candidates =
@@ -640,8 +640,14 @@ final class TitleDetailView extends JPanel {
         }.execute();
     }
 
-    private EmbeddedPlayerWindow configuredPlayer(String mediaTitle, Models.Episode episode) {
-        EmbeddedPlayerWindow player = EmbeddedPlayerWindow.open(owner, mediaTitle);
+    private EmbeddedPlayerView configuredPlayer(String mediaTitle, Models.Episode episode) {
+        EmbeddedPlayerView player;
+        if (owner instanceof MainFrame mainFrame) {
+            player = mainFrame.openEmbeddedPlayer(mediaTitle, onHistoryChanged);
+        } else {
+            EmbeddedPlayerWindow window = EmbeddedPlayerWindow.open(owner, mediaTitle);
+            player = window.playerView();
+        }
         if (provider instanceof SportsResolvedProvider) return player;
         if (episode == null) {
             player.setProgressListener((progress, duration, finalUpdate) -> {
@@ -664,7 +670,7 @@ final class TitleDetailView extends JPanel {
 
     private void resolveAnyAndPlay(List<Models.Server> servers, String providerItemId,
                                    String mediaTitle,
-                                   long playbackRequest, EmbeddedPlayerWindow player,
+                                   long playbackRequest, EmbeddedPlayerView player,
                                    Models.Episode episode, double resumeAtSeconds) {
         status.setText("Buscando la mejor fuente…");
 
@@ -727,7 +733,7 @@ final class TitleDetailView extends JPanel {
 
     private void resolveVodAndPlay(List<ProviderFallbackCoordinator.Candidate> candidates, int candidateIndex,
                                    String mediaTitle,
-                                   long playbackRequest, EmbeddedPlayerWindow player,
+                                   long playbackRequest, EmbeddedPlayerView player,
                                    Models.Episode episode, double resumeAtSeconds) {
         if (candidateIndex >= candidates.size()) {
             if (player.isDisplayable()) {
@@ -830,7 +836,7 @@ final class TitleDetailView extends JPanel {
 
     private void resolveSportsAndPlay(List<Models.Server> servers, int startIndex,
                                       String providerItemId, String mediaTitle,
-                                      long playbackRequest, EmbeddedPlayerWindow player,
+                                      long playbackRequest, EmbeddedPlayerView player,
                                       Models.Episode episode, double resumeAtSeconds) {
         if (startIndex >= servers.size()) {
             if (player.isDisplayable()) player.showFailure("No quedan señales alternativas disponibles.");
@@ -889,7 +895,7 @@ final class TitleDetailView extends JPanel {
 
     private void resolveAndPlay(Models.Server server, String providerItemId,
                                 String mediaTitle,
-                                long playbackRequest, EmbeddedPlayerWindow player,
+                                long playbackRequest, EmbeddedPlayerView player,
                                 Models.Episode episode, double resumeAtSeconds) {
         status.setText("Preparando reproducción…");
         player.setPreparing("Preparando " + server.name() + "…");
@@ -934,7 +940,7 @@ final class TitleDetailView extends JPanel {
     }
 
     private void enrichSubtitlesAsync(String providerItemId, Models.Server selected,
-                                      Models.Video primary, EmbeddedPlayerWindow player,
+                                      Models.Video primary, EmbeddedPlayerView player,
                                       Models.Episode episode) {
         if (!(provider instanceof TmdbProvider) || primary == null || !player.isDisplayable()) return;
 

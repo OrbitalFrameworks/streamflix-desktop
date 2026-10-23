@@ -46,15 +46,15 @@ The current stable release is **1.3.9**, adding fluid native navigation with sho
 ### Playback
 
 - mpv as the playback engine, provisioned once from a pinned upstream GitHub release with SHA-256 verification
-- mpv video embedded inside Streamflix rather than exposing the external mpv UI
-- Real fullscreen acquisition on Windows
-- Loading state while extraction/player startup is in progress
+- mpv video embedded directly inside MainFrame content view without secondary windows; pop-out window available as explicit secondary action
+- Real fullscreen acquisition on Windows with seamless overlay controls
+- Loading state while extraction/player startup is in progress (honest progress, no fake percentages)
 - Automatic server fallback based on playback startup, not extraction success alone
 - Local server ranking learns which hosts start faster and fail less on this machine
 - Manual server selection
 - Playback headers forwarded to mpv
 - Pause/resume, seek ±10 s, timeline, volume, audio-track and subtitle selection
-- Stable windowed player chrome; controls auto-hide only in fullscreen
+- Stable in-frame and windowed player chrome with zero canvas resize flash; controls auto-hide only in fullscreen
 - Configurable quality: Automatic, Data Saver, Balanced, High and Maximum
 - Automatic HLS quality starts below mpv's maximum-bitrate default and can downgrade after sustained buffering
 - Configurable preferred audio and subtitle language

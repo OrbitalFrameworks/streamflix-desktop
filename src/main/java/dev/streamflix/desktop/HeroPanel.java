@@ -60,15 +60,15 @@ final class HeroPanel extends JLayeredPane {
 
         JLabel eyebrow = Theme.eyebrow(
                 item.type() == Models.ShowType.MOVIE ? "PELÍCULA DESTACADA" : "SERIE DESTACADA");
-        eyebrow.setForeground(new Color(220, 220, 224));
+        eyebrow.setForeground(Theme.TEXT.darker());
         eyebrow.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         JLabel title = Theme.heading(
                 "<html><body style='width:580px'>" + escape(item.title()) + "</body></html>",
-                40f);
+                38f);
         title.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JPanel metadata = new JPanel(new FlowLayout(FlowLayout.LEFT, 9, 0));
+        JPanel metadata = new JPanel(new FlowLayout(FlowLayout.LEFT, Theme.SPACE_2 + 1, 0));
         metadata.setOpaque(false);
         metadata.setAlignmentX(Component.LEFT_ALIGNMENT);
         if (item.released() != null && !item.released().isBlank()) {
@@ -78,7 +78,7 @@ final class HeroPanel extends JLayeredPane {
         }
         if (item.rating() != null && item.rating() > 0) {
             JLabel rating = new JLabel(String.format("%.1f / 10", item.rating()));
-            rating.setForeground(new Color(232, 211, 96));
+            rating.setForeground(Theme.FOCUS);
             rating.setFont(Theme.FONT_BOLD.deriveFont(12.5f));
             metadata.add(rating);
         }
@@ -91,32 +91,36 @@ final class HeroPanel extends JLayeredPane {
                 : item.overview();
 
         JLabel description = Theme.muted(
-                "<html><body style='width:565px'>" + escape(shorten(synopsis, 290)) + "</body></html>");
-        description.setForeground(new Color(218, 220, 225));
-        description.setFont(Theme.FONT.deriveFont(14.5f));
+                "<html><body style='width:565px'>" + escape(shorten(synopsis, 280)) + "</body></html>");
+        description.setForeground(Theme.TEXT);
+        description.setFont(Theme.FONT.deriveFont(14f));
         description.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JPanel actions = new JPanel(new FlowLayout(FlowLayout.LEFT, 9, 0));
+        JPanel actions = new JPanel(new FlowLayout(FlowLayout.LEFT, Theme.SPACE_2 + 1, 0));
         actions.setOpaque(false);
         actions.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         JButton play = Theme.primaryButton("Reproducir", StreamflixIcons.Glyph.PLAY);
+        play.setToolTipText("Iniciar reproducción de " + item.title());
+        play.getAccessibleContext().setAccessibleName("Reproducir " + item.title());
         play.addActionListener(e -> onPlay.accept(item));
         this.playButton = play;
         actions.add(play);
 
         JButton open = Theme.button("Más información", StreamflixIcons.Glyph.INFO);
+        open.setToolTipText("Ver detalles y episodios de " + item.title());
+        open.getAccessibleContext().setAccessibleName("Más información sobre " + item.title());
         open.addActionListener(e -> onOpen.accept(item));
         actions.add(open);
 
         copy.add(eyebrow);
-        copy.add(Box.createVerticalStrut(10));
+        copy.add(Box.createVerticalStrut(Theme.SPACE_2));
         copy.add(title);
-        copy.add(Box.createVerticalStrut(10));
+        copy.add(Box.createVerticalStrut(Theme.SPACE_2));
         copy.add(metadata);
-        copy.add(Box.createVerticalStrut(15));
+        copy.add(Box.createVerticalStrut(Theme.SPACE_4));
         copy.add(description);
-        copy.add(Box.createVerticalStrut(20));
+        copy.add(Box.createVerticalStrut(Theme.SPACE_4 + Theme.SPACE_1));
         copy.add(actions);
 
         add(copy, Integer.valueOf(2));

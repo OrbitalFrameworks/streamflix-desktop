@@ -51,6 +51,26 @@ components:
     backgroundColor: "{colors.surface-raised}"
     textColor: "{colors.text}"
     rounded: "{rounded.md}"
+  player-stage:
+    backgroundColor: "#000000"
+    overlayBackground: "rgba(8, 10, 15, 0.90)"
+    controlsHeightTop: 54px
+    controlsHeightBottom: 72px
+  card-landscape:
+    aspectRatio: "16:9"
+    rounded: "{rounded.md}"
+    border: "{colors.border}"
+    focusOutline: "{colors.focus}"
+  state-card:
+    backgroundColor: "{colors.surface}"
+    rounded: "{rounded.md}"
+    padding: 24px
+    maxWidth: 560px
+  progress-bar:
+    trackColor: "{colors.surface-raised}"
+    fillColor: "{colors.primary}"
+    height: 4px
+    rounded: "{rounded.sm}"
 ---
 
 # Streamflix Desktop Design System
@@ -102,6 +122,7 @@ The brand mark supplies personality; control icons stay neutral. Do not generate
 ## Components and behavior
 
 - Navigation and controls always expose a visible keyboard-focus outline in addition to hover and selected state.
+- Catalog-card focus is a persistent 2 px `Theme.FOCUS` outline, independent of pointer hover; button press feedback darkens on pointer-down and clears on release/cancel.
 - Artwork cards use 16:9 framing, title metadata, a distinct focus outline, and a separate red progress indicator.
 - Discovery uses horizontal rails with visible arrows. Continue Watching is a bounded grid/empty state, never a horizontal rail.
 - Loading, empty, recovery error and success feedback use human-readable text. Technical exception strings are not UI copy.
@@ -122,3 +143,18 @@ The brand mark supplies personality; control icons stay neutral. Do not generate
 - State preservation: vertical scroll position, active filters, search inputs, and keyboard focus are preserved across tab switches and detail view round-trips.
 - RAM caching: catalog and Home data are cached in a bounded, thread-safe in-memory cache (5-minute TTL, LRU eviction) to eliminate redundant network round-trips and skeleton flickering.
 - Detailed navigation and caching invariants are documented in [`docs/NAVIGATION_UX_INVARIANTS.md`](docs/NAVIGATION_UX_INVARIANTS.md).
+
+## Playback & In-Frame Player Architecture
+
+- Default Playback in MainFrame: Playing media switches `contentStack` to the `PLAYER` card within `MainFrame`. No secondary window is opened on standard play actions.
+- Overlay Chrome: Top and bottom control bars are overlays on the native mpv Canvas. Auto-hiding or revealing controls never resizes or flashes the video stage.
+- Fullscreen Continuity: Fullscreen operates directly on `MainFrame`. Overlay controls auto-hide after 2.8 s of inactivity and reappear upon mouse movement or key press.
+- Contextual Return: Pressing Escape or the Back button exits the player and restores the detail view or origin without reloading data or resetting scroll/focus.
+- Pop-Out Mode: Standalone floating window (`EmbeddedPlayerWindow`) is accessible as an explicit secondary action, never as the default playback mode.
+
+## Loading & Honest State Invariants
+
+- Non-Dominant Start: Shimmering skeleton blocks and arbitrary percentage indicators (such as legacy "81%") are eliminated from dominant loading states.
+- Contextual Preparation: Empty-cache starts present a compact contextual card ("Preparando tu inicio") while keeping navigation and search fully interactive.
+- Background Refresh: Existing catalog and search items remain interactive while new results load in the background, eliminating layout flicker.
+- Error Recovery: Actionable recovery cards with clear, non-technical explanations and direct retry actions ("Reintentar") replace unhandled exceptions or blank screens.

@@ -64,14 +64,18 @@ final class LandscapeCard extends JLayeredPane {
                     g2.setPaint(gradient);
                     g2.fillRoundRect(0, 0, w, h, 12, 12);
 
-                    if (hoverAmount > 0.02f) {
-                        if (focused) {
-                            g2.setColor(Theme.ACCENT);
-                        } else {
-                            g2.setColor(new Color(255, 255, 255,
-                                    Math.max(1, Math.round(55f * hoverAmount))));
-                        }
+                    if (hoverAmount > 0.02f && !focused) {
+                        g2.setColor(new Color(255, 255, 255,
+                                Math.max(1, Math.round(55f * hoverAmount))));
                         g2.drawRoundRect(0, 0, w - 1, h - 1, 12, 12);
+                    }
+
+                    // Keyboard focus is an independent state: it remains visible even
+                    // without pointer hover and never relies on the red progress accent.
+                    if (focused) {
+                        g2.setColor(Theme.FOCUS);
+                        g2.setStroke(new BasicStroke(2f));
+                        g2.drawRoundRect(1, 1, Math.max(0, w - 3), Math.max(0, h - 3), 10, 10);
                     }
 
                     if (progress > 0.01 && progress < 0.995) {

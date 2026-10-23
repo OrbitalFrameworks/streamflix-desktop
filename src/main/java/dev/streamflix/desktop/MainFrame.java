@@ -18,6 +18,9 @@ final class MainFrame extends JFrame {
     private Provider provider;
     private final SmoothContentHost contentStack = new SmoothContentHost();
     private final JPanel detailHost = new JPanel(new BorderLayout());
+    private final JPanel playerHost = new JPanel(new BorderLayout());
+    private EmbeddedPlayerView activePlayerView;
+    private JComponent topbar;
     private boolean detailOpen;
     private boolean homeNeedsRefresh;
     private final CatalogRamCache catalogRamCache = new CatalogRamCache();
@@ -118,6 +121,7 @@ final class MainFrame extends JFrame {
 
     @Override public void dispose() {
         try {
+            if (activePlayerView != null) activePlayerView.stopPlayback();
             sportsHub.deactivate();
             MpvPlayer.shutdown();
         }
@@ -140,7 +144,8 @@ final class MainFrame extends JFrame {
         JPanel north = new JPanel();
         north.setBackground(Theme.BG);
         north.setLayout(new BoxLayout(north, BoxLayout.Y_AXIS));
-        north.add(buildTopbar());
+        topbar = buildTopbar();
+        north.add(topbar);
         north.add(buildSectionHeader());
 
         workspace.add(north, BorderLayout.NORTH);
@@ -336,10 +341,12 @@ final class MainFrame extends JFrame {
         });
 
         detailHost.setBackground(Theme.BG);
+        playerHost.setBackground(Color.BLACK);
         contentStack.addCard(homeScroll, Mode.HOME.name());
         contentStack.addCard(catalogScroll, "CATALOG");
         contentStack.addCard(sportsHub, Mode.SPORTS.name());
         contentStack.addCard(detailHost, "DETAIL");
+        contentStack.addCard(playerHost, "PLAYER");
         return contentStack;
     }
 
@@ -537,9 +544,24 @@ final class MainFrame extends JFrame {
 
     private void loadHome() {
         contentStack.showCard(Mode.HOME.name());
+        CatalogRamCache.HomeEntry cachedHome = catalogRamCache.getHome(TmdbSettings.catalogLanguage());
+        if (cachedHome != null && !cachedHome.isExpired()) {
+            if (homeNeedsRefresh) {
+                homeNeedsRefresh = false;
+                List<Models.ShowItem> freshHistory = UserData.getHistory().stream().limit(8).toList();
+                HomeData updated = catalogRamCache.updateHomeHistory(TmdbSettings.catalogLanguage(), freshHistory);
+                renderHome(updated != null ? updated : cachedHome.data());
+            } else if (homeRoot.getComponentCount() == 0) {
+                renderHome(cachedHome.data());
+            }
+            homeScroll.getVerticalScrollBar().setValue(cachedHome.scrollPosition());
+            status.setText(" ");
+            return;
+        }
+
         status.setText("Preparando tu inicio…");
         homeRoot.removeAll();
-        homeRoot.add(buildHomeSkeleton());
+        homeRoot.add(buildHomeLoadingCard());
         homeRoot.revalidate();
         homeRoot.repaint();
 
@@ -616,10 +638,37 @@ final class MainFrame extends JFrame {
         activeWorker.execute();
     }
 
-    private JComponent buildHomeSkeleton() {
-        StreamingSkeleton skeleton = new StreamingSkeleton();
-        skeleton.setAlignmentX(Component.LEFT_ALIGNMENT);
-        return skeleton;
+    private JComponent buildHomeLoadingCard() {
+        JPanel container = new JPanel(new GridBagLayout());
+        container.setOpaque(false);
+        container.setBorder(new EmptyBorder(60, 34, 60, 34));
+
+        JPanel card = Theme.cardPanel();
+        card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
+        card.setPreferredSize(new Dimension(560, 160));
+        card.setMaximumSize(new Dimension(560, 160));
+
+        JLabel heading = Theme.heading("Preparando tu inicio", 20f);
+        heading.setAlignmentX(Component.LEFT_ALIGNMENT);
+        JLabel body = Theme.muted("<html><body style='width:455px'>Conectando con el catálogo para organizar tus películas, series y recomendaciones…</body></html>");
+        body.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        JProgressBar progress = new JProgressBar();
+        progress.setIndeterminate(true);
+        progress.setAlignmentX(Component.LEFT_ALIGNMENT);
+        progress.setMaximumSize(new Dimension(460, 4));
+        progress.setPreferredSize(new Dimension(460, 4));
+        progress.setForeground(Theme.ACCENT);
+        progress.setBackground(Theme.PANEL_ALT);
+
+        card.add(heading);
+        card.add(Box.createVerticalStrut(Theme.SPACE_2 + 2));
+        card.add(body);
+        card.add(Box.createVerticalStrut(Theme.SPACE_4 + 2));
+        card.add(progress);
+
+        container.add(card);
+        return container;
     }
 
     private void renderHome(HomeData data) {
@@ -985,7 +1034,7 @@ final class MainFrame extends JFrame {
         } else {
             setBusy(true, requestMode == Mode.SEARCH ? "Buscando…" : "Cargando…");
         }
-        if (!append && !preserveSearchResults) renderLoading(requestProvider.name());
+        if (!append && !preserveSearchResults && loadedItems.isEmpty()) renderLoading(requestProvider.name());
 
         activeWorker = new SwingWorker<List<Models.ShowItem>, Void>() {
             @Override protected List<Models.ShowItem> doInBackground() throws Exception {
@@ -1111,7 +1160,10 @@ final class MainFrame extends JFrame {
     }
 
     private void renderLoading(String source) {
-        renderGridState("Cargando catálogo", "Preparando títulos…", null, null);
+        String detail = source != null && !source.isBlank()
+                ? "Preparando títulos disponibles en " + source + "…"
+                : "Preparando títulos…";
+        renderGridState("Cargando catálogo", detail, null, null);
     }
 
     private void renderTmdbSetup() {
@@ -1135,27 +1187,7 @@ final class MainFrame extends JFrame {
     }
 
     private JComponent stateCard(String title, String message, String actionText, Runnable action) {
-        JPanel card = Theme.surface();
-        card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
-        card.setPreferredSize(new Dimension(560, 180));
-
-        JLabel heading = Theme.heading(title, 20f);
-        heading.setAlignmentX(Component.LEFT_ALIGNMENT);
-        JLabel body = Theme.muted("<html><body style='width:455px'>" + escapeHtml(message) + "</body></html>");
-        body.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        card.add(heading);
-        card.add(Box.createVerticalStrut(9));
-        card.add(body);
-
-        if (actionText != null && action != null) {
-            card.add(Box.createVerticalStrut(18));
-            JButton actionButton = Theme.primaryButton(actionText);
-            actionButton.setAlignmentX(Component.LEFT_ALIGNMENT);
-            actionButton.addActionListener(e -> action.run());
-            card.add(actionButton);
-        }
-        return card;
+        return Theme.stateCard(title, escapeHtml(message), actionText, action);
     }
 
     private void maybeLoadMore() {
@@ -1436,6 +1468,69 @@ final class MainFrame extends JFrame {
             }
         }
         return false;
+    }
+
+    EmbeddedPlayerView openEmbeddedPlayer(String title, Runnable onHistoryChanged) {
+        if (activePlayerView != null) {
+            activePlayerView.stopPlayback();
+            playerHost.removeAll();
+        }
+        activePlayerView = new EmbeddedPlayerView(this, title, this::closeEmbeddedPlayer);
+        activePlayerView.setOnPopOut(() -> {
+            Models.Video vid = activePlayerView.currentVideo();
+            String srv = activePlayerView.currentServerName();
+            long req = activePlayerView.currentRequestId();
+            double time = activePlayerView.lastKnownTime();
+            closeEmbeddedPlayer();
+            EmbeddedPlayerWindow pop = EmbeddedPlayerWindow.open(this, title);
+            if (vid != null) {
+                try {
+                    pop.start(vid, srv, req, time);
+                } catch (Exception ex) {
+                    AppLog.warn("player", "Error al transferir a ventana pop-out", ex);
+                }
+            }
+        });
+
+        playerHost.removeAll();
+        playerHost.add(activePlayerView, BorderLayout.CENTER);
+        playerHost.revalidate();
+        playerHost.repaint();
+
+        sectionHeaderPanel.setVisible(false);
+        if (topbar != null) topbar.setVisible(false);
+
+        contentStack.showCard("PLAYER", () -> {
+            if (activePlayerView != null) activePlayerView.requestFocusInWindow();
+        });
+        return activePlayerView;
+    }
+
+    void closeEmbeddedPlayer() {
+        if (activePlayerView != null) {
+            if (activePlayerView.isFullScreen()) {
+                activePlayerView.exitFullscreen();
+            }
+            activePlayerView.stopPlayback();
+            activePlayerView = null;
+        }
+        playerHost.removeAll();
+        if (topbar != null) topbar.setVisible(true);
+
+        if (detailOpen) {
+            sectionHeaderPanel.setVisible(false);
+            contentStack.showCard("DETAIL", () -> {
+                detailHost.requestFocusInWindow();
+            });
+        } else {
+            updateHeader();
+            String destination = switch (mode) {
+                case HOME -> Mode.HOME.name();
+                case SPORTS -> Mode.SPORTS.name();
+                default -> "CATALOG";
+            };
+            contentStack.showCard(destination, this::restoreFocusAfterDetails);
+        }
     }
 
     private void rebuildGridColumns() {
