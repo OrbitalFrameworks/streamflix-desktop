@@ -122,6 +122,7 @@ The brand mark supplies personality; control icons stay neutral. Do not generate
 ## Components and behavior
 
 - Navigation and controls always expose a visible keyboard-focus outline in addition to hover and selected state.
+- Catalog-card focus is a persistent 2 px `Theme.FOCUS` outline, independent of pointer hover; button press feedback darkens on pointer-down and clears on release/cancel.
 - Artwork cards use 16:9 framing, title metadata, a distinct focus outline, and a separate red progress indicator.
 - Discovery uses horizontal rails with visible arrows. Continue Watching is a bounded grid/empty state, never a horizontal rail.
 - Loading, empty, recovery error and success feedback use human-readable text. Technical exception strings are not UI copy.

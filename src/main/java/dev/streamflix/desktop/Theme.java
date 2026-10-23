@@ -22,6 +22,14 @@ final class Theme {
     static final Color SUCCESS = new Color(104, 211, 145);
     static final Color FOCUS = new Color(255, 221, 104);
 
+    // Shared geometry keeps independently assembled Swing screens visually related.
+    static final int SPACE_1 = 4;
+    static final int SPACE_2 = 8;
+    static final int SPACE_3 = 12;
+    static final int SPACE_4 = 16;
+    static final int RADIUS_COMPACT = 6;
+    static final int RADIUS_CONTROL = 12;
+
     static final Font FONT = new Font("Segoe UI Variable Text", Font.PLAIN, 14);
     static final Font FONT_BOLD = new Font("Segoe UI Variable Text", Font.BOLD, 14);
     static final Font FONT_DISPLAY = new Font("Segoe UI Variable Display", Font.BOLD, 14);
@@ -34,12 +42,12 @@ final class Theme {
         JDialog.setDefaultLookAndFeelDecorated(true);
 
         UIManager.put("defaultFont", FONT);
-        UIManager.put("Component.arc", 12);
-        UIManager.put("Button.arc", 12);
-        UIManager.put("TextComponent.arc", 12);
-        UIManager.put("CheckBox.arc", 6);
-        UIManager.put("ProgressBar.arc", 12);
-        UIManager.put("Component.focusWidth", 1);
+        UIManager.put("Component.arc", RADIUS_CONTROL);
+        UIManager.put("Button.arc", RADIUS_CONTROL);
+        UIManager.put("TextComponent.arc", RADIUS_CONTROL);
+        UIManager.put("CheckBox.arc", RADIUS_COMPACT);
+        UIManager.put("ProgressBar.arc", RADIUS_CONTROL);
+        UIManager.put("Component.focusWidth", 2);
         UIManager.put("Component.focusColor", FOCUS);
         UIManager.put("Component.innerFocusWidth", 0);
         UIManager.put("ScrollBar.width", 10);
@@ -65,6 +73,11 @@ final class Theme {
         UIManager.put("TextField.caretForeground", TEXT);
         UIManager.put("TextField.selectionBackground", ACCENT);
         UIManager.put("TextField.margin", new Insets(7, 10, 7, 10));
+        UIManager.put("PasswordField.background", PANEL_ALT);
+        UIManager.put("PasswordField.foreground", TEXT);
+        UIManager.put("PasswordField.caretForeground", TEXT);
+        UIManager.put("PasswordField.selectionBackground", ACCENT);
+        UIManager.put("PasswordField.margin", new Insets(7, 10, 7, 10));
         UIManager.put("ComboBox.background", PANEL_ALT);
         UIManager.put("ComboBox.foreground", TEXT);
         UIManager.put("ComboBox.selectionBackground", HOVER);
@@ -73,6 +86,18 @@ final class Theme {
         UIManager.put("List.foreground", TEXT);
         UIManager.put("List.selectionBackground", HOVER);
         UIManager.put("List.selectionForeground", TEXT);
+        UIManager.put("TabbedPane.background", BG);
+        UIManager.put("TabbedPane.foreground", MUTED);
+        UIManager.put("TabbedPane.selectedBackground", PANEL_ALT);
+        UIManager.put("TabbedPane.selectedForeground", TEXT);
+        UIManager.put("TabbedPane.underlineColor", ACCENT);
+        UIManager.put("TabbedPane.inactiveUnderlineColor", new Color(0, 0, 0, 0));
+        UIManager.put("TabbedPane.tabInsets", new Insets(8, 12, 8, 12));
+        UIManager.put("TabbedPane.tabAreaInsets", new Insets(0, 0, 2, 0));
+        UIManager.put("TabbedPane.tabSelectionHeight", 3);
+        UIManager.put("TabbedPane.focusColor", FOCUS);
+        UIManager.put("CheckBox.icon.focusColor", FOCUS);
+        UIManager.put("CheckBox.foreground", TEXT);
         UIManager.put("OptionPane.background", PANEL);
         UIManager.put("OptionPane.messageForeground", TEXT);
         UIManager.put("ToolTip.background", PANEL_ALT);
@@ -175,6 +200,7 @@ final class Theme {
         private final boolean navigation;
         private final boolean topNavigation;
         private boolean hovered;
+        private boolean pressed;
         private boolean selectedState;
         private boolean focused;
 
@@ -206,7 +232,20 @@ final class Theme {
                 }
                 @Override public void mouseExited(java.awt.event.MouseEvent e) {
                     hovered = false;
+                    pressed = false;
                     repaint();
+                }
+                @Override public void mousePressed(java.awt.event.MouseEvent e) {
+                    if (isEnabled() && SwingUtilities.isLeftMouseButton(e)) {
+                        pressed = true;
+                        repaint();
+                    }
+                }
+                @Override public void mouseReleased(java.awt.event.MouseEvent e) {
+                    if (pressed) {
+                        pressed = false;
+                        repaint();
+                    }
                 }
             });
             addFocusListener(new java.awt.event.FocusAdapter() {
@@ -248,11 +287,15 @@ final class Theme {
                 }
                 if (bg.getAlpha() > 0) {
                     g2.setColor(bg);
-                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
+                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), RADIUS_CONTROL, RADIUS_CONTROL);
+                }
+                if (pressed) {
+                    g2.setColor(new Color(0, 0, 0, primary ? 32 : 22));
+                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), RADIUS_CONTROL, RADIUS_CONTROL);
                 }
                 if (!primary && !navigation && !topNavigation) {
                     g2.setColor(selectedState ? ACCENT : BORDER);
-                    g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 12, 12);
+                    g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, RADIUS_CONTROL, RADIUS_CONTROL);
                 }
                 if (selectedState && navigation) {
                     g2.setColor(ACCENT);
@@ -266,7 +309,7 @@ final class Theme {
                     g2.setColor(FOCUS);
                     g2.setStroke(new BasicStroke(2f));
                     g2.drawRoundRect(1, 1, Math.max(0, getWidth() - 3),
-                            Math.max(0, getHeight() - 3), 10, 10);
+                            Math.max(0, getHeight() - 3), RADIUS_CONTROL - 2, RADIUS_CONTROL - 2);
                 }
             } finally {
                 g2.dispose();

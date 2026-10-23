@@ -62,6 +62,7 @@ public final class EmbeddedPlayerIntegrationTest {
             Provider dummy = ProviderRegistry.all().get(0);
             MainFrame frame = new MainFrame(List.of(dummy));
             try {
+                frame.addNotify();
                 AtomicBoolean historyChanged = new AtomicBoolean(false);
                 EmbeddedPlayerView player = frame.openEmbeddedPlayer("In-Frame Playback Test", () -> historyChanged.set(true));
                 check(player != null, "Embedded player view must be returned");
