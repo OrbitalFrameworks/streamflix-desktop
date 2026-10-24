@@ -75,6 +75,35 @@ public final class WindowsNativeGuiE2E {
         return null;
     }
 
+    /** Wait for the actual async Home/catalog layout, not an arbitrary fixed delay.
+     * This is polled outside the EDT so Swing workers and layout events can run.
+     */
+    private static void awaitHomeHero(MainFrame frame, long timeoutMs) throws Exception {
+        long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMs);
+        while (System.nanoTime() < deadline) {
+            AtomicBoolean ready = new AtomicBoolean();
+            edt(() -> {
+                try {
+                    var field = MainFrame.class.getDeclaredField("homeScroll");
+                    field.setAccessible(true);
+                    JScrollPane scroll = (JScrollPane) field.get(frame);
+                    Component view = scroll.getViewport().getView();
+                    HeroPanel hero = findHero(view);
+                    ready.set(hero != null && hero.getWidth() > 0 && hero.getHeight() > 0
+                            && scroll.getViewport().getExtentSize().width > 0);
+                } catch (ReflectiveOperationException e) {
+                    throw new AssertionError("Cannot inspect asynchronous Home readiness", e);
+                }
+            });
+            if (ready.get()) {
+                log("PASS: Populated Home hero loaded and laid out before layout assertions");
+                return;
+            }
+            Thread.sleep(150);
+        }
+        throw new AssertionError("Home hero did not load and lay out within " + timeoutMs + "ms");
+    }
+
     /** Detects offscreen Home content even when the native window itself is not clipped. */
     private static void verifyHomeContentFits(MainFrame frame) {
         try {
@@ -351,8 +380,9 @@ public final class WindowsNativeGuiE2E {
             verify(frame != null, "MainFrame instance constructed");
             verify(frame.isDisplayable(), "MainFrame mounted and displayable");
 
-            // Wait for Home content worker to populate
-            Thread.sleep(2200);
+            // Wait for actual content readiness. A fixed 2.2s sleep proved
+            // flaky under different GitHub Windows runner scheduling loads.
+            awaitHomeHero(frame, 20_000);
 
             // Verify populated Home state & layout at 1480x900
             edt(() -> {
