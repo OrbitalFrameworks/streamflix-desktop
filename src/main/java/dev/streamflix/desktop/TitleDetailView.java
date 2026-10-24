@@ -244,11 +244,11 @@ final class TitleDetailView extends JPanel {
                     int w = getWidth();
                     int h = getHeight();
                     g2.setPaint(new GradientPaint(
-                            0, 0, new Color(0, 0, 0, 220),
-                            Math.max(1, (int) (w * 0.72)), 0, new Color(0, 0, 0, 24)));
+                            0, 0, new Color(10, 12, 17, 245),
+                            Math.max(1, (int) (w * 0.74)), 0, new Color(10, 12, 17, 18)));
                     g2.fillRect(0, 0, w, h);
                     g2.setPaint(new GradientPaint(
-                            0, Math.max(1, (int) (h * 0.48)), new Color(0, 0, 0, 0),
+                            0, Math.max(1, (int) (h * 0.42)), new Color(10, 12, 17, 0),
                             0, h, Theme.BG));
                     g2.fillRect(0, 0, w, h);
                 } finally {
@@ -313,27 +313,22 @@ final class TitleDetailView extends JPanel {
         this.titleLabel = title;
         title.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JPanel meta = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        JPanel meta = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
         meta.setOpaque(false);
         meta.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         if (item.released() != null && !item.released().isBlank()) {
             String released = item.released().length() >= 4 ? item.released().substring(0, 4) : item.released();
-            JLabel value = Theme.muted(released);
-            value.setFont(Theme.FONT_BOLD.deriveFont(12.5f));
-            meta.add(value);
+            meta.add(Theme.badge(released));
         }
         if (item.rating() != null && item.rating() > 0) {
-            JLabel rating = new JLabel(String.format("★ %.1f / 10", item.rating()));
-            rating.setForeground(new Color(232, 211, 96));
-            rating.setFont(Theme.FONT_BOLD.deriveFont(12.5f));
-            meta.add(rating);
+            meta.add(Theme.starRatingBadge(item.rating()));
         }
         if (item.runtimeMinutes() != null && item.runtimeMinutes() > 0) {
-            JLabel runtime = Theme.muted(item.runtimeMinutes() + " min");
-            runtime.setFont(Theme.FONT.deriveFont(12.5f));
-            meta.add(runtime);
+            meta.add(Theme.badge(item.runtimeMinutes() + " min"));
         }
+        meta.add(Theme.badge(item.type() == Models.ShowType.MOVIE ? "Película" : "Serie"));
+        meta.add(Theme.badge("Full HD"));
 
         String overviewText = item.overview() == null || item.overview().isBlank()
                 ? "Sin descripción disponible."
@@ -558,7 +553,8 @@ final class TitleDetailView extends JPanel {
         };
 
         for (int season : seasons.keySet()) {
-            String label = season == 0 ? "Especiales" : "Temporada " + season;
+            int count = seasons.getOrDefault(season, List.of()).size();
+            String label = (season == 0 ? "Especiales" : "Temporada " + season) + " (" + count + ")";
             JButton button = Theme.button(label);
             seasonButtons.put(season, button);
             button.addActionListener(e -> selectSeason.accept(season));

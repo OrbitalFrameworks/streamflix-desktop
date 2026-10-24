@@ -47,7 +47,15 @@ Deterministic gates currently include JSON, provider/TMDb/M3U fixtures, extracto
 user data, mpv player, playback fallback/server ranking, updater parsing, image disk cache, diagnostics privacy,
 mpv bootstrap, concurrent VOD search, provider health stats, playback failover coordinator, catalog RAM cache,
 navigation state/motion tests, embedded player integration tests, and WindowsNativeGuiE2E multi-viewport
-layout validation (1480x900, 1280x800, 1024x768), visual dialog absence checks, and clean player restoration.
+layout validation (1480x900 cinematic, 1280x800 standard, 1024x768 compact), visual dialog absence checks,
+and clean player restoration.
+
+Recent visual/UX candidate recovery (post-f798b10):
+- Home & Editorial Hero: HeroPanel incorporates direct "+ Mi lista" toggle action, standardized micro-badges (release year, star rating with #E8D360 gold star, media type, Full HD), and deep charcoal multi-stop vignette gradients for optimal text legibility.
+- Catalog & Discovery Rails: LandscapeCard integrates tonal micro-badges, refined 16:9 aspect ratio, and persistent 2px keyboard focus outlines; Continue Watching features an honest contextual empty state with direct exploration CTA.
+- Search Experience: Dynamic search scope chips (All, Movies, Series, Live TV) in catalogFilters allowing instant scope switching without retyping, plus contextual guidance and recovery states.
+- Mi Lista (Favorites): Dedicated category filter chips (Todos, Películas, Series, TV) with real-time reactive counts, and an actionable empty state guiding users to explore popular movies.
+- Detail View: Season selector displays episode counts ("Temporada 1 (10)"), rich metadata pills, and polished episode row keyboard navigation.
 
 ## Release engineering
 

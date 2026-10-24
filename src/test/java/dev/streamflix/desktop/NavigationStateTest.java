@@ -26,6 +26,8 @@ public final class NavigationStateTest {
         testEpisodeRowAccessibilityAndFocus();
         testSportsCompactCardAccessibilityAndFocus();
         testStreamingSkeletonReducedMotion();
+        testThemeBadgesAndStateCards();
+        testHeroPanelActionsAndFavorites();
         System.out.println("NavigationStateTest OK");
     }
 
@@ -458,6 +460,51 @@ public final class NavigationStateTest {
             if (original != null) System.setProperty("streamflix.reducedMotion", original);
             else System.clearProperty("streamflix.reducedMotion");
         }
+    }
+
+    private static void testThemeBadgesAndStateCards() {
+        JComponent badge = Theme.badge("Full HD");
+        check(badge != null, "Theme.badge must return component");
+
+        JComponent star = Theme.starRatingBadge(8.8);
+        check(star != null, "Theme.starRatingBadge must return component");
+
+        JComponent accent = Theme.accentBadge("EN VIVO");
+        check(accent != null, "Theme.accentBadge must return component");
+
+        AtomicBoolean chipClicked = new AtomicBoolean(false);
+        JButton chip = Theme.filterChip("Películas (12)", true, () -> chipClicked.set(true));
+        check(chip != null && "Películas (12)".equals(chip.getText()), "Theme.filterChip configures text");
+        chip.doClick();
+        check(chipClicked.get(), "filterChip triggers action on click");
+
+        JComponent card = Theme.stateCard("Título", "Mensaje de prueba", "Reintentar", () -> {});
+        check(card != null, "Theme.stateCard returns non-null component");
+    }
+
+    private static void testHeroPanelActionsAndFavorites() {
+        Models.ShowItem item = new Models.ShowItem(
+                "item-hero-1", "prov-hero-1", "Hero Movie", "Sinopsis de prueba", "2024", 110, 8.5,
+                "http://poster", "http://banner", Models.ShowType.MOVIE, "tmdb");
+        HeroPanel hero = new HeroPanel(item, it -> {}, it -> {});
+        check("item-hero-1".equals(hero.item().id()), "HeroPanel item ID matches");
+
+        JButton favBtn = null;
+        for (Component c : hero.getComponents()) {
+            if (c instanceof JPanel p) {
+                for (Component child : p.getComponents()) {
+                    if (child instanceof JPanel inner) {
+                        for (Component b : inner.getComponents()) {
+                            if (b instanceof JButton btn && ("Mi lista".equals(btn.getText()) || "En mi lista".equals(btn.getText()))) {
+                                favBtn = btn;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        check(favBtn != null, "HeroPanel includes accessible favorite toggle button");
     }
 
     private static void drainEdt() {

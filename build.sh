@@ -27,7 +27,7 @@ else
 fi
 
 if [[ -z "${STREAMFLIX_BUILD_DIR:-}" ]]; then
-    if [[ ! -w "$ROOT" && ! -d "$ROOT/build" ]]; then
+    if [[ ! -w "$ROOT" || (-e "$ROOT/build" && ! -w "$ROOT/build") ]]; then
         BUILD_DIR="/tmp/streamflix-build"
     else
         BUILD_DIR="$ROOT/build"

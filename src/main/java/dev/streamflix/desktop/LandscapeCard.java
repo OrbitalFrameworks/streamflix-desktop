@@ -60,10 +60,10 @@ final class LandscapeCard extends JLayeredPane {
                     int h = getHeight();
                     g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-                    int overlayAlpha = 188 + Math.round(47f * hoverAmount);
+                    int overlayAlpha = 196 + Math.round(44f * hoverAmount);
                     GradientPaint gradient = new GradientPaint(
-                            0, Math.max(0, h / 3), new Color(0, 0, 0, 0),
-                            0, h, new Color(0, 0, 0, overlayAlpha));
+                            0, Math.max(0, (int) (h * 0.32)), new Color(0, 0, 0, 0),
+                            0, h, new Color(10, 12, 17, overlayAlpha));
                     g2.setPaint(gradient);
                     g2.fillRoundRect(0, 0, w, h, 12, 12);
 
@@ -111,29 +111,20 @@ final class LandscapeCard extends JLayeredPane {
         title.setToolTipText(item.title());
         copy.add(title);
 
-        JPanel meta = new JPanel(new FlowLayout(FlowLayout.LEFT, 7, 0));
+        JPanel meta = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
         meta.setOpaque(false);
         meta.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         if (item.released() != null && !item.released().isBlank()) {
             String year = item.released().length() >= 4 ? item.released().substring(0, 4) : item.released();
-            JLabel yearLabel = new JLabel(year);
-            yearLabel.setForeground(new Color(205, 209, 216));
-            yearLabel.setFont(Theme.FONT.deriveFont(11f));
-            meta.add(yearLabel);
+            meta.add(Theme.badge(year));
         }
 
         if (item.rating() != null && item.rating() > 0) {
-            JLabel rating = new JLabel(String.format("★ %.1f", item.rating()));
-            rating.setForeground(new Color(232, 211, 96));
-            rating.setFont(Theme.FONT_BOLD.deriveFont(11f));
-            meta.add(rating);
+            meta.add(Theme.starRatingBadge(item.rating()));
         }
 
-        JLabel kind = new JLabel(item.type() == Models.ShowType.MOVIE ? "Película" : "Serie");
-        kind.setForeground(new Color(178, 185, 198));
-        kind.setFont(Theme.FONT.deriveFont(11f));
-        meta.add(kind);
+        meta.add(Theme.badge(item.type() == Models.ShowType.MOVIE ? "Película" : "Serie"));
 
         copy.add(Box.createVerticalStrut(4));
         copy.add(meta);

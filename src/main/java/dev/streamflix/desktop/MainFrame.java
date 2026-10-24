@@ -43,6 +43,7 @@ final class MainFrame extends JFrame {
     private final JLabel sectionSubtitle = Theme.muted("Tu contenido, sin ruido");
     private final JLabel status = Theme.muted(" ");
     private final JPanel sectionHeaderPanel = new JPanel(new BorderLayout());
+    private String favoritesCategory = "ALL";
     private final JPanel catalogFilters = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
     private final JTextField search = new JTextField(27);
     private final javax.swing.Timer searchDebounce;
@@ -373,6 +374,9 @@ final class MainFrame extends JFrame {
         detailOpen = false;
         detailHistoryStack.clear();
         mode = newMode;
+        if (newMode == Mode.FAVORITES) {
+            favoritesCategory = "ALL";
+        }
         if (newMode != Mode.MOVIES && newMode != Mode.SERIES) {
             catalogGenreId = null;
             catalogGenreLabel = "Popular";
@@ -765,14 +769,15 @@ final class MainFrame extends JFrame {
         section.add(heading, BorderLayout.NORTH);
 
         if (items.isEmpty()) {
-            JPanel empty = new JPanel(new BorderLayout());
-            empty.setBackground(Theme.PANEL);
-            empty.setBorder(BorderFactory.createCompoundBorder(
-                    BorderFactory.createLineBorder(Theme.BORDER), new EmptyBorder(16, 18, 16, 18)));
-            JLabel message = Theme.muted("Aún no tienes nada pendiente. Reproduce un título para retomarlo aquí.");
-            empty.add(message, BorderLayout.WEST);
+            JPanel empty = Theme.surface(Theme.RADIUS_CONTROL, new Insets(16, 20, 16, 20));
+            empty.setLayout(new FlowLayout(FlowLayout.LEFT, 12, 0));
+            JLabel icon = new JLabel(StreamflixIcons.icon(StreamflixIcons.Glyph.PLAY, 16));
+            JLabel message = Theme.muted("Aún no tienes reproducciones pendientes. Reproduce cualquier título del catálogo para retomarlo automáticamente aquí.");
+            message.setFont(Theme.FONT.deriveFont(13f));
+            empty.add(icon);
+            empty.add(message);
             section.add(empty, BorderLayout.CENTER);
-            section.setMaximumSize(new Dimension(Integer.MAX_VALUE, 126));
+            section.setMaximumSize(new Dimension(Integer.MAX_VALUE, 110));
             return section;
         }
 
@@ -1133,20 +1138,55 @@ final class MainFrame extends JFrame {
         grid.removeAll();
         rebuildGridColumns();
 
-        if (items.isEmpty()) {
-            String title = switch (mode) {
-                case FAVORITES -> "Todavía no tienes títulos en Mi lista";
-                default -> "No encontramos resultados";
+        List<Models.ShowItem> displayItems = items;
+        if (mode == Mode.FAVORITES) {
+            displayItems = switch (favoritesCategory) {
+                case "MOVIES" -> items.stream().filter(it -> it.type() == Models.ShowType.MOVIE).toList();
+                case "SERIES" -> items.stream().filter(it -> it.type() == Models.ShowType.TV_SHOW).toList();
+                case "LIVE" -> items.stream().filter(it -> it.type() != Models.ShowType.MOVIE && it.type() != Models.ShowType.TV_SHOW).toList();
+                default -> items;
             };
-            String message = switch (mode) {
-                case FAVORITES -> "Guarda títulos desde su ficha y aparecerán aquí.";
-                default -> "Prueba otra búsqueda.";
-            };
-            renderGridState(title, message, null, null);
+        }
+
+        if (displayItems.isEmpty()) {
+            if (mode == Mode.FAVORITES) {
+                if (items.isEmpty()) {
+                    renderGridState(
+                            "Tu lista personal está vacía",
+                            "Guarda títulos desde su ficha usando el botón “+ Mi lista” para encontrarlos rápidamente aquí.",
+                            "Explorar películas",
+                            () -> switchMode(Mode.MOVIES));
+                } else {
+                    renderGridState(
+                            "No tienes títulos en esta categoría",
+                            "Prueba seleccionando “Todos” en los filtros superiores para ver todos tus elementos guardados.",
+                            "Ver todos",
+                            () -> {
+                                favoritesCategory = "ALL";
+                                renderCatalog(loadedItems);
+                                renderCatalogFilters();
+                            });
+                }
+                return;
+            }
+            if (mode == Mode.SEARCH) {
+                renderGridState(
+                        "Sin coincidencias para “" + query + "”",
+                        "No encontramos resultados en " + (searchScope != null ? searchScope.name().toLowerCase() : "el catálogo") +
+                                ". Prueba buscando por título original, año o revisa posibles errores tipográficos.",
+                        "Buscar en todo el catálogo",
+                        () -> {
+                            searchScope = null;
+                            updateHeader();
+                            runSearch(false);
+                        });
+                return;
+            }
+            renderGridState("No encontramos resultados", "Prueba otra búsqueda o explora otras categorías.", null, null);
             return;
         }
 
-        for (Models.ShowItem item : items) grid.add(cardFor(item));
+        for (Models.ShowItem item : displayItems) grid.add(cardFor(item));
         grid.revalidate();
         grid.repaint();
     }
@@ -1187,27 +1227,7 @@ final class MainFrame extends JFrame {
     }
 
     private JComponent stateCard(String title, String message, String actionText, Runnable action) {
-        JPanel card = Theme.surface();
-        card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
-        card.setPreferredSize(new Dimension(560, 180));
-
-        JLabel heading = Theme.heading(title, 20f);
-        heading.setAlignmentX(Component.LEFT_ALIGNMENT);
-        JLabel body = Theme.muted("<html><body style='width:455px'>" + escapeHtml(message) + "</body></html>");
-        body.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        card.add(heading);
-        card.add(Box.createVerticalStrut(9));
-        card.add(body);
-
-        if (actionText != null && action != null) {
-            card.add(Box.createVerticalStrut(18));
-            JButton actionButton = Theme.primaryButton(actionText);
-            actionButton.setAlignmentX(Component.LEFT_ALIGNMENT);
-            actionButton.addActionListener(e -> action.run());
-            card.add(actionButton);
-        }
-        return card;
+        return Theme.stateCard(title, message, actionText, action);
     }
 
     private void maybeLoadMore() {
@@ -1657,6 +1677,57 @@ final class MainFrame extends JFrame {
     private void renderCatalogFilters() {
         catalogFilters.removeAll();
 
+        if (mode == Mode.FAVORITES) {
+            List<Models.ShowItem> allFavs = UserData.getFavorites();
+            long movieCount = allFavs.stream().filter(it -> it.type() == Models.ShowType.MOVIE).count();
+            long seriesCount = allFavs.stream().filter(it -> it.type() == Models.ShowType.TV_SHOW).count();
+            long liveCount = allFavs.size() - movieCount - seriesCount;
+
+            record FavFilter(String label, String category) {}
+            List<FavFilter> favFilters = List.of(
+                    new FavFilter("Todos (" + allFavs.size() + ")", "ALL"),
+                    new FavFilter("Películas (" + movieCount + ")", "MOVIES"),
+                    new FavFilter("Series (" + seriesCount + ")", "SERIES"),
+                    new FavFilter("TV (" + liveCount + ")", "LIVE")
+            );
+            for (FavFilter ff : favFilters) {
+                JButton button = Theme.filterChip(ff.label(), favoritesCategory.equals(ff.category()), () -> {
+                    favoritesCategory = ff.category();
+                    renderCatalog(loadedItems);
+                    renderCatalogFilters();
+                });
+                catalogFilters.add(button);
+            }
+            catalogFilters.setVisible(true);
+            catalogFilters.revalidate();
+            catalogFilters.repaint();
+            return;
+        }
+
+        if (mode == Mode.SEARCH) {
+            record ScopeChip(String label, Mode scope) {}
+            List<ScopeChip> chips = List.of(
+                    new ScopeChip("Películas y series", null),
+                    new ScopeChip("Películas", Mode.MOVIES),
+                    new ScopeChip("Series", Mode.SERIES),
+                    new ScopeChip("TV en directo", Mode.LIVE)
+            );
+            for (ScopeChip chip : chips) {
+                boolean active = (chip.scope() == null && searchScope == null)
+                        || (chip.scope() != null && chip.scope() == searchScope);
+                JButton button = Theme.filterChip(chip.label(), active, () -> {
+                    searchScope = chip.scope();
+                    updateHeader();
+                    runSearch(false);
+                });
+                catalogFilters.add(button);
+            }
+            catalogFilters.setVisible(true);
+            catalogFilters.revalidate();
+            catalogFilters.repaint();
+            return;
+        }
+
         List<GenreFilter> filters = switch (mode) {
             case MOVIES -> List.of(
                     new GenreFilter("Popular", null),
@@ -1704,7 +1775,7 @@ final class MainFrame extends JFrame {
             case SERIES -> "Series";
             case LIVE -> "TV en vivo";
             case SPORTS -> "Deportes";
-            case SEARCH -> query.isBlank() ? "Resultados" : "Resultados para “" + query + "”";
+            case SEARCH -> query.isBlank() ? "Buscar" : "Resultados para “" + query + "”";
             case FAVORITES -> "Mi lista";
         };
         sectionTitle.setText(title);
@@ -1712,14 +1783,14 @@ final class MainFrame extends JFrame {
 
         String subtitle = switch (mode) {
             case HOME -> "Películas, series y canales en un solo lugar";
-            case FAVORITES -> "Títulos que guardaste";
+            case FAVORITES -> "Títulos y canales guardados en tu biblioteca personal";
             case LIVE -> "Canales en directo";
             case SPORTS -> "Partidos, carreras y eventos deportivos en vivo y próximos";
             case SEARCH -> switch (searchScope) {
-                case MOVIES -> "Películas";
-                case SERIES -> "Series";
-                case LIVE -> "Canales en directo";
-                default -> "Películas y series";
+                case MOVIES -> "Búsqueda en Películas";
+                case SERIES -> "Búsqueda en Series";
+                case LIVE -> "Búsqueda en Canales en directo";
+                default -> "Búsqueda en películas y series";
             };
             case MOVIES -> "Explora películas";
             case SERIES -> "Explora series";

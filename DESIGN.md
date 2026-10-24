@@ -167,6 +167,8 @@ The brand mark supplies personality; control icons stay neutral. Do not generate
 - Standard Spacing Scale: `Theme.SPACE_1` (4 px), `Theme.SPACE_2` (8 px), `Theme.SPACE_3` (12 px), and `Theme.SPACE_4` (16 px) govern margins, paddings, and control separations.
 - Corner Radii: `Theme.RADIUS_CONTROL` (12 px) on standard buttons, input fields, state cards, sports cards, and catalog cards; `Theme.RADIUS_COMPACT` (6 px) on checkboxes, progress bars, and compact badges.
 - Antialiased Surfaces: `Theme.RoundedPanel` renders tonal panels (`#131720`) with smooth antialiased borders (`#2A3140`), preventing sharp rectangular clipping artifacts across Home, Settings, Sports Hub, and Guide dialogs.
-- Interactive Feedback: `PillButton` implements tactile pointer-down darkening, hover luminescence, and distinct 2 px `#FFDD68` keyboard focus outlines.
+- Micro-Badges & Rating Pills: `Theme.badge(...)` and `Theme.starRatingBadge(...)` establish consistent 6 px radius badges across catalog cards, editorial hero stages, and detail headers with gold star highlights (`#E8D360`) and tonal depth.
+- Interactive Feedback: `PillButton` and `FlatButton` implement tactile pointer-down darkening, hover luminescence, and distinct 2 px `#FFDD68` keyboard focus outlines.
+- Dynamic Scope & Category Chips: `Theme.filterChip(...)` provides interactive toggle chips for Search scopes (All, Movies, Series, Live TV) and Mi lista categories (Todos, Películas, Series, TV) with real-time reactive filtering.
 - Tabbed Navigation: `SettingsDialog` tabs incorporate mnemonic shortcuts, tooltips, accessible descriptions, and scroll-protected viewports for compact screen sizes.
 - Timer Disambiguation: All EDT-driven animations, transitions, debounces, and polling loops use explicit `javax.swing.Timer` instances to guarantee toolchain determinism.
