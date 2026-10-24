@@ -25,6 +25,8 @@ public final class WindowsNativeGuiE2E {
     private static final List<String> logEntries = new ArrayList<>();
     private static final List<Map<String, Object>> screenshotManifest = new ArrayList<>();
     private static Robot robot;
+    private static boolean nativePlaybackObserved;
+    private static boolean completedSuccessfully;
 
     private static void log(String msg) {
         System.out.println("NATIVE-GUI-E2E: " + msg);
@@ -96,7 +98,7 @@ public final class WindowsNativeGuiE2E {
         robot.waitForIdle();
 
         Rectangle bounds = window.getBounds().intersection(new Rectangle(Toolkit.getDefaultToolkit().getScreenSize()));
-        verify(bounds.width >= 400 && bounds.height >= 250, name + " valid onscreen bounds: " + bounds.width + "x" + bounds.height);
+        verify(bounds.width >= targetW && bounds.height >= targetH, name + " actual captured viewport must match requested size");
 
         BufferedImage fullImage = robot.createScreenCapture(bounds);
         Files.createDirectories(SCREENSHOTS_DIR);
@@ -302,7 +304,7 @@ public final class WindowsNativeGuiE2E {
                 MainFrame frame = new MainFrame(ProviderRegistry.all());
                 frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
                 frame.setSize(1480, 900);
-                frame.setLocation(20, 20);
+                frame.setLocation(0, 0);
                 frame.setVisible(true);
                 frameRef.set(frame);
             });
@@ -455,6 +457,7 @@ public final class WindowsNativeGuiE2E {
             if (MpvPlayer.isCurrentAlive()) {
                 verify(playerView.lastKnownTime() >= 0.0, "mpv player IPC active");
                 log("mpv alive, position: " + playerView.lastKnownTime());
+                nativePlaybackObserved = true;
             } else {
                 log("NOTICE: mpv process not running locally in this step; synthetic player stage verified");
             }
@@ -517,7 +520,7 @@ public final class WindowsNativeGuiE2E {
         root.put("screenshotsCount", screenshotManifest.size());
         root.put("screenshots", screenshotManifest);
         root.put("log", logEntries);
-        root.put("verdict", "PASS");
+        root.put("verdict", screenshotManifest.size() >= 8 && nativePlaybackObserved ? "PASS" : "NOT_VERIFIED");
 
         String json = Json.stringify(root);
         Files.writeString(OUT.resolve("manifest.json"), json);

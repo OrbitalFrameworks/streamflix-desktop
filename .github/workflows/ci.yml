@@ -27,6 +27,16 @@ jobs:
         shell: pwsh
         run: .\setup-mpv.ps1
 
+      - name: Set desktop resolution for multi-viewport GUI verification
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.Windows.Forms
+          Write-Host "Initial desktop: $([System.Windows.Forms.Screen]::PrimaryScreen.Bounds)"
+          if (Get-Command Set-DisplayResolution -ErrorAction SilentlyContinue) {
+            Set-DisplayResolution -Width 1920 -Height 1080 -Force
+          }
+          Write-Host "Available desktop: $([System.Windows.Forms.Screen]::PrimaryScreen.Bounds)"
+
       - name: Run native Windows GUI E2E with populated fixture catalog
         shell: pwsh
         run: .\build.ps1 -RunGuiE2E
