@@ -195,6 +195,14 @@ final class LandscapeCard extends JLayeredPane {
 
     private void animateHover(float target) {
         hoverTarget = target;
+        if (SmoothContentHost.isReducedMotion()) {
+            // Match navigation's OS/user motion preference without losing the
+            // immediate hover/focus affordance or trapping input in an animation.
+            hoverTimer.stop();
+            hoverAmount = target;
+            repaintAll();
+            return;
+        }
         if (!hoverTimer.isRunning()) hoverTimer.start();
     }
 
