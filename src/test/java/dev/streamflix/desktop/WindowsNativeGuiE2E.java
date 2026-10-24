@@ -130,7 +130,10 @@ public final class WindowsNativeGuiE2E {
         entry.put("name", name + ".png");
         entry.put("width", fullImage.getWidth());
         entry.put("height", fullImage.getHeight());
-        entry.put("viewport", targetW + "x" + targetH);
+        entry.put("viewport", bounds.width + "x" + bounds.height);
+        entry.put("requestedViewport", targetW + "x" + targetH);
+        entry.put("desktop", screenSize.width + "x" + screenSize.height);
+        entry.put("clippedByDesktop", bounds.width < targetW || bounds.height < targetH);
         entry.put("sizeBytes", bytes.length);
         entry.put("sha256", hex.toString());
         entry.put("colorsSampled", sampledColors.size());
@@ -292,6 +295,7 @@ public final class WindowsNativeGuiE2E {
             verify(movies.size() >= 5, "Fixture movies returned: " + movies.size());
             List<Models.ShowItem> searchResults = fixtureProvider.search("Dune", 1);
             verify(!searchResults.isEmpty(), "Fixture search returned items");
+            completedSuccessfully = true;
             writeManifest();
             log("HEADLESS E2E PRECHECK COMPLETED SUCCESSFULLY");
             return;
@@ -527,9 +531,12 @@ public final class WindowsNativeGuiE2E {
         root.put("screenshots", screenshotManifest);
         root.put("log", logEntries);
         boolean isWindows = System.getProperty("os.name", "").toLowerCase().contains("win");
-        boolean pass = GraphicsEnvironment.isHeadless()
-                || (screenshotManifest.size() >= 8 && (!isWindows || nativePlaybackObserved));
-        root.put("verdict", pass ? "PASS" : "NOT_VERIFIED");
+        boolean pass = completedSuccessfully && !GraphicsEnvironment.isHeadless()
+                && screenshotManifest.size() >= 8 && (!isWindows || nativePlaybackObserved);
+        root.put("nativePlaybackVerified", nativePlaybackObserved);
+        root.put("nativeGuiVerified", !GraphicsEnvironment.isHeadless() && screenshotManifest.size() >= 8);
+        root.put("verdict", pass ? "PASS" : GraphicsEnvironment.isHeadless() && completedSuccessfully
+                ? "FIXTURE_PASS" : "NOT_VERIFIED");
 
         String json = Json.stringify(root);
         Files.writeString(OUT.resolve("manifest.json"), json);
