@@ -275,7 +275,10 @@ final class TitleDetailView extends JPanel {
                 background.setBounds(0, 0, w, h);
                 shade.setBounds(0, 0, w, h);
                 int inset = Math.min(40, Math.max(18, w / 18));
-                int safeCopyWidth = (int) (w * 0.58) - inset - 8;
+                // Keep readable copy inside the left editorial zone. Real
+                // backdrops and the missing-artwork monogram both reserve the
+                // right half; allowing 58% previously crossed that boundary.
+                int safeCopyWidth = (int) (w * 0.50) - inset - 8;
                 int cw = Math.min(780, Math.max(0, Math.min(w - inset * 2, safeCopyWidth > 280 ? safeCopyWidth : w - inset * 2)));
                 int ch = Math.min(340, Math.max(0, h - 80));
                 int textWidth = Math.max(100, cw - 8);

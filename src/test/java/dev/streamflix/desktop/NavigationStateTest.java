@@ -21,6 +21,7 @@ public final class NavigationStateTest {
         testDetailNavigationStack();
         testCardTargetMatching();
         testHeroCopyWordWrap();
+        testDetailSynopsisCompactWrap();
         testPlayerTransitionSuppression();
         testEpisodeRowAccessibilityAndFocus();
         testSportsCompactCardAccessibilityAndFocus();
@@ -79,6 +80,25 @@ public final class NavigationStateTest {
                 "A short synopsis must preserve all meaningful text when wrapping");
         String clipped = HeroPanel.wrappedHtml(synopsis + " ".repeat(2) + synopsis, metrics, 150, 2);
         check(clipped.contains("…"), "Long synopsis truncation must be indicated visibly");
+    }
+
+    private static void testDetailSynopsisCompactWrap() {
+        JLabel label = new JLabel();
+        FontMetrics metrics = label.getFontMetrics(new Font("Dialog", Font.PLAIN, 14));
+        String description = "Dom Cobb es un ladrón experto en el peligroso arte de la extracción de secretos corporativos.";
+        for (int viewport : new int[] {1024, 1280, 1480}) {
+            int inset = Math.min(40, Math.max(18, viewport / 18));
+            int copyWidth = (int) (viewport * 0.50) - inset - 8;
+            check(inset + copyWidth < viewport * 0.54,
+                    "Detail synopsis must stay inside its left editorial zone at " + viewport);
+            String html = HeroPanel.wrappedHtml(description, metrics, copyWidth - 22, 4);
+            if (metrics.stringWidth(description) > copyWidth - 22) {
+                check(html.contains("<br>"),
+                        "Detail synopsis must break across lines when copy exceeds the safe zone at " + viewport);
+            }
+            check(html.contains("corporativos."),
+                    "The full short synopsis should remain visible at " + viewport);
+        }
     }
 
     private static void testTransitionConstants() {
