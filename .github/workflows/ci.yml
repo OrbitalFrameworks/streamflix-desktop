@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   windows:
-    name: Windows build, deterministic tests & native GUI E2E
+    name: Windows tests
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v5
@@ -85,7 +85,7 @@ jobs:
           path: build/streamflix-desktop.jar
 
   linux:
-    name: Linux compile, deterministic tests & headless E2E verification
+    name: Linux compile/tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
