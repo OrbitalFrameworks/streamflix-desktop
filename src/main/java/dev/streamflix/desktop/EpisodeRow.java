@@ -26,26 +26,34 @@ final class EpisodeRow extends JPanel {
 
         setLayout(new BorderLayout(16, 0));
         setOpaque(false);
-        setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(Theme.BORDER),
-                new EmptyBorder(10, 10, 10, 12)));
+        setBorder(new EmptyBorder(10, 12, 10, 14));
         setMaximumSize(new Dimension(Integer.MAX_VALUE, 126));
         setPreferredSize(new Dimension(760, 126));
         setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 
         ArtworkPanel still = new ArtworkPanel(episode.poster());
         still.setPreferredSize(new Dimension(176, 99));
+        still.setFallbackText("");
         add(still, BorderLayout.WEST);
 
         JPanel copy = new JPanel();
         copy.setOpaque(false);
         copy.setLayout(new BoxLayout(copy, BoxLayout.Y_AXIS));
 
-        String titleText = episode.title() == null || episode.title().isBlank()
-                ? "Episodio " + episode.episodeNumber()
-                : episode.title();
+        String rawTitle = episode.title() != null ? episode.title().strip() : "";
+        String displayTitle;
+        String epPrefix = "E" + episode.episodeNumber();
+        if (rawTitle.isEmpty()
+                || rawTitle.equalsIgnoreCase("Episodio " + episode.episodeNumber())
+                || rawTitle.equalsIgnoreCase("Episode " + episode.episodeNumber())
+                || rawTitle.equalsIgnoreCase(epPrefix)) {
+            displayTitle = "Episodio " + episode.episodeNumber();
+        } else {
+            String cleaned = rawTitle.replaceFirst("^(?i)(E" + episode.episodeNumber() + "|Episodio\\s*" + episode.episodeNumber() + "|Episode\\s*" + episode.episodeNumber() + ")\\s*[:·\\-]\\s*", "");
+            displayTitle = epPrefix + " · " + cleaned;
+        }
 
-        JLabel title = Theme.heading("E" + episode.episodeNumber() + " · " + titleText, 14f);
+        JLabel title = Theme.heading(displayTitle, 14f);
         title.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         String overviewText = episode.overview() == null || episode.overview().isBlank()
@@ -106,16 +114,21 @@ final class EpisodeRow extends JPanel {
     @Override protected void paintComponent(Graphics g) {
         Graphics2D g2 = (Graphics2D) g.create();
         try {
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            int w = getWidth();
+            int h = getHeight();
             g2.setColor(hovered ? new Color(24, 29, 40) : new Color(16, 19, 26));
-            g2.fillRect(0, 0, getWidth(), getHeight());
+            g2.fillRoundRect(0, 0, w, h, Theme.RADIUS_CONTROL, Theme.RADIUS_CONTROL);
+            g2.setColor(hovered ? new Color(255, 255, 255, 36) : Theme.BORDER);
+            g2.drawRoundRect(0, 0, w - 1, h - 1, Theme.RADIUS_CONTROL, Theme.RADIUS_CONTROL);
 
             if (progress > 0.0001 && progress < 0.995) {
                 int barHeight = 4;
-                int y = getHeight() - barHeight;
+                int y = h - barHeight - 2;
                 g2.setColor(new Color(255, 255, 255, 55));
-                g2.fillRect(0, y, getWidth(), barHeight);
+                g2.fillRoundRect(12, y, w - 24, barHeight, 2, 2);
                 g2.setColor(Theme.ACCENT);
-                g2.fillRect(0, y, Math.max(2, (int) Math.round(getWidth() * progress)), barHeight);
+                g2.fillRoundRect(12, y, Math.max(2, (int) Math.round((w - 24) * progress)), barHeight, 2, 2);
             }
         } finally {
             g2.dispose();

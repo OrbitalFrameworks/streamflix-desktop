@@ -11,7 +11,7 @@ final class LandscapeCard extends JLayeredPane {
     private final ArtworkPanel artwork;
     private final JPanel overlay;
     private final double progress;
-    private Timer hoverTimer;
+    private javax.swing.Timer hoverTimer;
     private boolean hovered;
     private boolean focused;
     private float hoverAmount;
@@ -31,7 +31,7 @@ final class LandscapeCard extends JLayeredPane {
         setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         setFocusable(true);
 
-        hoverTimer = new Timer(16, e -> {
+        hoverTimer = new javax.swing.Timer(16, e -> {
             float delta = hoverTarget - hoverAmount;
             if (Math.abs(delta) < 0.02f) {
                 hoverAmount = hoverTarget;
@@ -46,7 +46,7 @@ final class LandscapeCard extends JLayeredPane {
         String image = item.banner() != null && !item.banner().isBlank()
                 ? cardArtworkUrl(item.banner()) : cardArtworkUrl(item.poster());
         artwork = new ArtworkPanel(image);
-        artwork.setFallbackText(item.title());
+        artwork.setFallbackText("");
         add(artwork, Integer.valueOf(0));
 
         overlay = new JPanel() {

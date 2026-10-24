@@ -121,9 +121,20 @@ final class TmdbGuideDialog extends JDialog {
         card.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
         card.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JLabel badge = new JLabel(number, SwingConstants.CENTER);
-        badge.setOpaque(true);
-        badge.setBackground(Theme.ACCENT);
+        JLabel badge = new JLabel(number, SwingConstants.CENTER) {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                try {
+                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                    g2.setColor(Theme.ACCENT);
+                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), Theme.RADIUS_CONTROL, Theme.RADIUS_CONTROL);
+                } finally {
+                    g2.dispose();
+                }
+                super.paintComponent(g);
+            }
+        };
+        badge.setOpaque(false);
         badge.setForeground(Color.WHITE);
         badge.setFont(Theme.FONT_BOLD.deriveFont(15f));
         badge.setPreferredSize(new Dimension(36, 36));
@@ -217,7 +228,7 @@ final class TmdbGuideDialog extends JDialog {
             Toolkit.getDefaultToolkit().getSystemClipboard()
                     .setContents(new StringSelection(text), null);
             copy.setText("Copiado");
-            Timer timer = new Timer(1400, event -> copy.setText("Copiar ejemplo"));
+            javax.swing.Timer timer = new javax.swing.Timer(1400, event -> copy.setText("Copiar ejemplo"));
             timer.setRepeats(false);
             timer.start();
         });

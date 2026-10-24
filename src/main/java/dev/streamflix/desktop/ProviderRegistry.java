@@ -27,13 +27,21 @@ final class ProviderRegistry {
             new MegaKinoProvider()
     );
 
+    private static volatile List<Provider> customProviders = null;
+
     private ProviderRegistry() {}
 
+    static synchronized void registerCustomProviders(List<Provider> custom) {
+        customProviders = (custom != null) ? List.copyOf(custom) : null;
+    }
+
     static List<Provider> all() {
-        return PROVIDERS;
+        List<Provider> custom = customProviders;
+        return custom != null ? custom : PROVIDERS;
     }
 
     static Provider get(String id) {
-        return PROVIDERS.stream().filter(p -> p.id().equals(id)).findFirst().orElse(null);
+        List<Provider> list = all();
+        return list.stream().filter(p -> p.id().equals(id)).findFirst().orElse(null);
     }
 }

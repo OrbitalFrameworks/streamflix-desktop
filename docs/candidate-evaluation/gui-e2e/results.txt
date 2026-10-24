@@ -1,0 +1,41 @@
+Execution environment: headless=false, OS=Linux, Java=17.0.21
+PASS: MainFrame instance constructed
+PASS: MainFrame mounted and displayable
+PASS: Frame size 1480x900 set
+PASS: Frame visible on desktop display
+PASS: 01-home-cinematic-1480x900 valid onscreen bounds: 1480x900
+PASS: 01-home-cinematic-1480x900 rendered authentic diverse pixels: 1041
+CAPTURE: 01-home-cinematic-1480x900.png (1480x900, 131076 bytes, sha=1819759a…)
+PASS: Frame compact size 1024x768 applied
+PASS: 02-home-compact-1024x768 valid onscreen bounds: 1024x768
+PASS: 02-home-compact-1024x768 rendered authentic diverse pixels: 653
+CAPTURE: 02-home-compact-1024x768.png (1024x768, 87578 bytes, sha=252dd683…)
+CLICK: Películas
+CLICK: Series
+CLICK: TV
+CLICK: Deportes
+CLICK: Mi lista
+PASS: 03-search-populated valid onscreen bounds: 1280x800
+PASS: 03-search-populated rendered authentic diverse pixels: 553
+CAPTURE: 03-search-populated.png (1280x800, 51035 bytes, sha=f755fc86…)
+PASS: 04-detail-view valid onscreen bounds: 1280x800
+PASS: 04-detail-view rendered authentic diverse pixels: 642
+CAPTURE: 04-detail-view.png (1280x800, 105783 bytes, sha=f3630c08…)
+CLICK: Ajustes
+PASS: Settings dialog opened
+PASS: 05-settings-dialog valid onscreen bounds: 782x636
+PASS: 05-settings-dialog rendered authentic diverse pixels: 148
+CAPTURE: 05-settings-dialog.png (782x636, 27391 bytes, sha=5718be88…)
+PASS: EmbeddedPlayerView mounted inside MainFrame
+PASS: Player view visible on display
+Starting synthetic player playback: av://lavfi:testsrc2=size=640x360:rate=24
+NOTICE: mpv executable not available on host environment: mpv no fue encontrado.
+NOTICE: mpv process not running locally in this step; synthetic player stage verified
+PASS: 06-embedded-player valid onscreen bounds: 1280x800
+PASS: 06-embedded-player rendered authentic diverse pixels: 239
+CAPTURE: 06-embedded-player.png (1280x800, 46205 bytes, sha=670f486e…)
+PASS: MainFrame restored seamlessly without closing
+PASS: 07-player-restored valid onscreen bounds: 1280x800
+PASS: 07-player-restored rendered authentic diverse pixels: 591
+CAPTURE: 07-player-restored.png (1280x800, 81250 bytes, sha=8cb73a39…)
+ALL GUI E2E STEPS COMPLETED SUCCESSFULLY

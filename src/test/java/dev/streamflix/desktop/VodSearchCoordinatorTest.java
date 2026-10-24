@@ -1,17 +1,97 @@
 package dev.streamflix.desktop;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Future;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class VodSearchCoordinatorTest {
     public static void main(String[] args) {
+        testBoundedExecutorConfiguration();
         testVodProviderFiltering();
         testScopeFilteringAndIsolation();
         testTimeoutAndResilience();
+        testDeadlineBasedOverallTimeout();
+        testInterruptAndCancellationPropagation();
         testCanonicalDeduplicationAndCandidates();
         testCandidateLruEviction();
         testCandidatePerKeyBounding();
         testRelevanceRanking();
+        testExecutorSaturationUnderQueueOverflow();
         System.out.println("VodSearchCoordinatorTest OK");
+    }
+
+    private static void testBoundedExecutorConfiguration() {
+        ThreadPoolExecutor executor = VodSearchCoordinator.executor();
+        require(executor != null, "executor non-null");
+        require(executor.getCorePoolSize() == 16, "corePoolSize is 16");
+        require(executor.getMaximumPoolSize() == 32, "maximumPoolSize is 32");
+        require(executor.getQueue().remainingCapacity() <= 64, "bounded queue capacity");
+        require(!(executor.getRejectedExecutionHandler() instanceof ThreadPoolExecutor.CallerRunsPolicy),
+                "must not use CallerRunsPolicy");
+        require(executor.getRejectedExecutionHandler() instanceof ThreadPoolExecutor.AbortPolicy,
+                "must use non-blocking AbortPolicy saturation handler");
+    }
+
+    private static void testDeadlineBasedOverallTimeout() {
+        // Create 4 slow providers that would each take 2000 ms
+        Provider slow1 = new TestVodProvider("slow-1", "Slow 1", true, true, 2000);
+        Provider slow2 = new TestVodProvider("slow-2", "Slow 2", true, true, 2000);
+        Provider slow3 = new TestVodProvider("slow-3", "Slow 3", true, true, 2000);
+        Provider slow4 = new TestVodProvider("slow-4", "Slow 4", true, true, 2000);
+        Provider fast = new TestVodProvider("fast-1", "Fast 1", true, true, 5);
+
+        List<Provider> providers = List.of(slow1, slow2, slow3, slow4, fast);
+
+        long start = System.currentTimeMillis();
+        // Deadline of 300 ms: total time must be bounded near 300 ms, not 4 * 300 ms or 4 * 2000 ms
+        VodSearchCoordinator.SearchResult result =
+                VodSearchCoordinator.search(providers, "dune", MainFrame.Mode.HOME, 1, 300L);
+        long elapsed = System.currentTimeMillis() - start;
+
+        require(elapsed < 900L, "Overall deadline must bound total search time (elapsed: " + elapsed + " ms)");
+        require(!result.items().isEmpty(), "Fast provider results preserved");
+
+        int timeouts = 0;
+        for (VodSearchCoordinator.ProviderResult pr : result.providerResults()) {
+            if (pr.status() == VodSearchCoordinator.ProviderSearchStatus.TIMEOUT) {
+                timeouts++;
+            }
+        }
+        require(timeouts == 4, "All 4 slow providers must time out (got: " + timeouts + ")");
+    }
+
+    private static void testInterruptAndCancellationPropagation() {
+        java.util.concurrent.atomic.AtomicBoolean wasInterrupted = new java.util.concurrent.atomic.AtomicBoolean(false);
+        Provider interruptible = new Provider() {
+            @Override public String id() { return "interruptible"; }
+            @Override public String name() { return "Interruptible"; }
+            @Override public List<Models.ShowItem> movies(int page) { return List.of(); }
+            @Override public List<Models.ShowItem> tvShows(int page) { return List.of(); }
+            @Override public List<Models.ShowItem> search(String query, int page) throws Exception {
+                try {
+                    Thread.sleep(3000);
+                } catch (InterruptedException ex) {
+                    wasInterrupted.set(true);
+                    throw ex;
+                }
+                return List.of();
+            }
+            @Override public List<Models.Episode> episodes(Models.ShowItem show) { return List.of(); }
+            @Override public List<Models.Server> servers(String providerItemId) { return List.of(); }
+        };
+
+        VodSearchCoordinator.SearchResult res =
+                VodSearchCoordinator.search(List.of(interruptible), "test", MainFrame.Mode.HOME, 1, 150L);
+
+        require(res.providerResults().get(0).status() == VodSearchCoordinator.ProviderSearchStatus.TIMEOUT,
+                "Slow provider marked as TIMEOUT");
+        // Give worker thread a moment to process interrupt
+        try { Thread.sleep(200); } catch (InterruptedException ignored) {}
+        require(wasInterrupted.get(), "Worker thread must receive interrupt on timeout cancellation");
     }
 
     private static void testVodProviderFiltering() {
@@ -166,6 +246,145 @@ public final class VodSearchCoordinatorTest {
         require(ranked.get(0).title().equals("Dune"), "exact match ranks first");
         require(ranked.get(1).title().equals("Dune: Part Two"), "prefix match ranks second");
         require(ranked.get(2).title().equals("The Dune Warrior"), "interior match ranks third");
+    }
+
+    private static void testExecutorSaturationUnderQueueOverflow() {
+        ThreadPoolExecutor executor = VodSearchCoordinator.executor();
+        require(executor.getRejectedExecutionHandler() instanceof ThreadPoolExecutor.AbortPolicy,
+                "executor must use AbortPolicy saturation handler");
+
+        // Await idle executor state from previous tests before calibrating saturation
+        long drainDeadline = System.currentTimeMillis() + 4000;
+        while ((executor.getActiveCount() > 0 || !executor.getQueue().isEmpty()) && System.currentTimeMillis() < drainDeadline) {
+            try { Thread.sleep(25); } catch (InterruptedException ignored) {}
+        }
+        executor.getQueue().clear();
+
+        AtomicBoolean releaseBarrier = new AtomicBoolean(false);
+        CountDownLatch barrierLatch = new CountDownLatch(1);
+        CountDownLatch runningLatch = new CountDownLatch(VodSearchCoordinator.MAX_POOL_SIZE);
+        List<Future<?>> blockerFutures = new ArrayList<>();
+
+        // Deterministic barrier task: clears residual interrupt status and blocks inside a loop
+        // until releaseBarrier is set to true. Even if interrupted during saturation setup or suite scheduling,
+        // it continues to block so the executing worker thread cannot exit and cannot dequeue
+        // tasks from the workQueue.
+        Runnable barrierTask = () -> {
+            Thread.interrupted(); // clear any residual interrupt from prior tests
+            runningLatch.countDown();
+            while (!releaseBarrier.get()) {
+                try {
+                    barrierLatch.await(10, TimeUnit.SECONDS);
+                } catch (InterruptedException ignored) {
+                    // Under full-suite scheduling or interrupt propagation, keep blocking
+                    // until releaseBarrier is explicitly set so this worker never returns
+                    // to getTask() and never dequeues another task during setup.
+                }
+            }
+        };
+
+        try {
+            // Deterministically saturate all 32 worker threads and all 64 queue slots.
+            // Submitting until RejectedExecutionException guarantees 100% saturation without
+            // race conditions or off-by-one capacity estimation.
+            boolean rejected = false;
+            while (!rejected) {
+                try {
+                    blockerFutures.add(executor.submit(barrierTask));
+                } catch (java.util.concurrent.RejectedExecutionException ex) {
+                    rejected = true;
+                }
+            }
+
+            // Ensure all 32 worker threads are actively occupied
+            boolean allRunning;
+            try {
+                allRunning = runningLatch.await(5, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                throw new AssertionError("Interrupted while saturating executor", e);
+            }
+            require(allRunning, "all 32 pool threads must be actively running blocker tasks");
+            require(executor.getQueue().remainingCapacity() == 0, "executor work queue must be fully saturated (remaining capacity 0)");
+
+            // Create test providers that would each sleep for 10 seconds if executed
+            AtomicBoolean inlineExecuted = new AtomicBoolean(false);
+            Thread callerThread = Thread.currentThread();
+
+            Provider overflowSlowProvider1 = new Provider() {
+                @Override public String id() { return "overflow-slow-1"; }
+                @Override public String name() { return "Overflow Slow 1"; }
+                @Override public List<Models.ShowItem> movies(int page) { return List.of(); }
+                @Override public List<Models.ShowItem> tvShows(int page) { return List.of(); }
+                @Override public List<Models.ShowItem> search(String query, int page) throws Exception {
+                    if (Thread.currentThread() == callerThread) {
+                        inlineExecuted.set(true);
+                    }
+                    Thread.sleep(10000);
+                    return List.of(new Models.ShowItem("slow:1", "s1", "Slow Movie", null, "2024", 120, 7.0, null, null, Models.ShowType.MOVIE, "overflow-slow-1"));
+                }
+                @Override public List<Models.Episode> episodes(Models.ShowItem show) { return List.of(); }
+                @Override public List<Models.Server> servers(String providerItemId) { return List.of(); }
+            };
+
+            Provider overflowSlowProvider2 = new Provider() {
+                @Override public String id() { return "overflow-slow-2"; }
+                @Override public String name() { return "Overflow Slow 2"; }
+                @Override public List<Models.ShowItem> movies(int page) { return List.of(); }
+                @Override public List<Models.ShowItem> tvShows(int page) { return List.of(); }
+                @Override public List<Models.ShowItem> search(String query, int page) throws Exception {
+                    if (Thread.currentThread() == callerThread) {
+                        inlineExecuted.set(true);
+                    }
+                    Thread.sleep(10000);
+                    return List.of();
+                }
+                @Override public List<Models.Episode> episodes(Models.ShowItem show) { return List.of(); }
+                @Override public List<Models.Server> servers(String providerItemId) { return List.of(); }
+            };
+
+            long searchStart = System.currentTimeMillis();
+            // Search with 4500 ms deadline under queue saturation
+            VodSearchCoordinator.SearchResult res =
+                    VodSearchCoordinator.search(List.of(overflowSlowProvider1, overflowSlowProvider2), "overflow-test", MainFrame.Mode.HOME, 1, 4500L);
+            long elapsed = System.currentTimeMillis() - searchStart;
+
+            // 1. Proves search returns strictly within the 4.5s deadline under queue overflow
+            require(elapsed < 4500L, "Search under queue overflow must strictly complete within deadline (elapsed: " + elapsed + " ms)");
+            require(elapsed < 1000L, "Non-blocking saturation handler must return immediately without waiting for overflow tasks (elapsed: " + elapsed + " ms)");
+
+            // 2. Proves no query was executed inline on coordinating thread
+            require(!inlineExecuted.get(), "Provider query must never execute inline on coordinating caller thread");
+
+            // 3. Proves overflow providers are immediately recorded as rejected / empty
+            require(res.items().isEmpty(), "No items returned from rejected overflow providers");
+            require(res.providerResults().size() == 2, "Both overflow providers recorded in results");
+            for (VodSearchCoordinator.ProviderResult pr : res.providerResults()) {
+                require(pr.status() == VodSearchCoordinator.ProviderSearchStatus.REJECTED,
+                        "Provider " + pr.providerId() + " must have REJECTED status under saturation (got: " + pr.status() + ")");
+                require(pr.count() == 0, "Rejected provider must have 0 count");
+                require(pr.errorMessage() != null && !pr.errorMessage().isBlank(), "Rejected provider must have error message");
+            }
+        } finally {
+            // Release blockers to restore pool state
+            releaseBarrier.set(true);
+            barrierLatch.countDown();
+            for (Future<?> f : blockerFutures) {
+                f.cancel(true);
+            }
+        }
+
+        // Verify pool recovers and can process searches again after saturation is cleared
+        long postDrainDeadline = System.currentTimeMillis() + 5000;
+        while ((executor.getActiveCount() > 0 || !executor.getQueue().isEmpty()) && System.currentTimeMillis() < postDrainDeadline) {
+            try { Thread.sleep(25); } catch (InterruptedException ignored) {}
+        }
+
+        Provider recoveredProvider = new TestVodProvider("recovered-fast", "Recovered Fast", true, true, 5);
+        VodSearchCoordinator.SearchResult postResult =
+                VodSearchCoordinator.search(List.of(recoveredProvider), "recovery-check", MainFrame.Mode.HOME, 1, 1000L);
+        require(!postResult.items().isEmpty(), "Executor must successfully process searches after saturation clears");
+        require(postResult.providerResults().get(0).status() == VodSearchCoordinator.ProviderSearchStatus.SUCCESS,
+                "Recovered provider must succeed");
     }
 
     private static void require(boolean condition, String label) {

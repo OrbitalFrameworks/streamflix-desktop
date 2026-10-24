@@ -3,13 +3,14 @@ name: CI
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
   windows:
-    name: Windows tests
+    name: Windows build, deterministic tests & native GUI E2E
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v5
@@ -17,12 +18,60 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Build and deterministic tests
+
+      - name: Build and deterministic test suites
         shell: pwsh
         run: .\build.ps1 -JarOnly
 
+      - name: Setup pinned mpv for native GUI E2E
+        shell: pwsh
+        run: .\setup-mpv.ps1
+
+      - name: Run native Windows GUI E2E with populated fixture catalog
+        shell: pwsh
+        run: .\build.ps1 -RunGuiE2E
+
+      - name: Verify native GUI E2E verdict and multi-viewport screenshots
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "build\windows-gui-e2e\manifest.json")) {
+            throw "GUI E2E manifest not found at build\windows-gui-e2e\manifest.json"
+          }
+          $manifest = Get-Content "build\windows-gui-e2e\manifest.json" | ConvertFrom-Json
+          if ($manifest.verdict -ne "PASS") {
+            throw "GUI E2E verdict was $($manifest.verdict), expected PASS"
+          }
+          if ($manifest.screenshotsCount -lt 8) {
+            throw "Expected at least 8 visual screenshot artifacts, found $($manifest.screenshotsCount)"
+          }
+          Write-Host "Native Windows GUI E2E verified: $($manifest.screenshotsCount) screenshots adhering to anti-slop standards."
+
+      - name: Upload native Windows GUI screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-native-gui-screenshots-${{ github.sha }}
+          path: build/windows-gui-e2e/screenshots/*.png
+          if-no-files-found: warn
+
+      - name: Upload native Windows GUI E2E execution report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-native-gui-report-${{ github.sha }}
+          path: |
+            build/windows-gui-e2e/manifest.json
+            build/windows-gui-e2e/results.txt
+          if-no-files-found: warn
+
+      - name: Upload Streamflix Desktop JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: streamflix-desktop-jar-${{ github.sha }}
+          path: build/streamflix-desktop.jar
+
   linux:
-    name: Linux compile/tests
+    name: Linux compile, deterministic tests & headless E2E verification
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -30,6 +79,31 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+
       - name: Build and deterministic tests
         shell: bash
         run: bash ./build.sh
+
+      - name: Headless E2E verification
+        shell: bash
+        run: bash ./build.sh --gui-e2e
+
+      - name: Verify headless E2E execution report
+        shell: bash
+        run: |
+          if [[ ! -f "build/gui-e2e/manifest.json" ]]; then
+            echo "GUI E2E manifest not found at build/gui-e2e/manifest.json" >&2
+            exit 1
+          fi
+          echo "Headless E2E report verified successfully."
+
+      - name: Upload Linux E2E execution report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-gui-report-${{ github.sha }}
+          path: |
+            build/gui-e2e/manifest.json
+            build/gui-e2e/results.txt
+            build/gui-e2e/screenshots/*.png
+          if-no-files-found: ignore

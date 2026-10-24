@@ -4,7 +4,6 @@ import com.sun.jna.Native;
 import com.sun.jna.Pointer;
 
 import javax.swing.*;
-import javax.swing.Timer;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.ChangeEvent;
 import java.awt.*;
@@ -58,8 +57,10 @@ final class EmbeddedPlayerView extends JPanel {
     private final JPopupMenu subtitleMenu = new JPopupMenu();
     private final JPopupMenu qualityMenu = new JPopupMenu();
 
-    private final Timer refreshTimer;
-    private final Timer chromeHideTimer;
+    // Swing timers deliver on the EDT; spelling the type out prevents a future
+    // java.util import from silently reintroducing the player CI ambiguity.
+    private final javax.swing.Timer refreshTimer;
+    private final javax.swing.Timer chromeHideTimer;
     private final AtomicBoolean refreshInFlight = new AtomicBoolean();
     private volatile MpvIpcClient ipc;
     private volatile boolean closing;
@@ -100,9 +101,9 @@ final class EmbeddedPlayerView extends JPanel {
         add(buildUi(), BorderLayout.CENTER);
         installActions();
 
-        refreshTimer = new Timer(1000, e -> refreshStateAsync());
+        refreshTimer = new javax.swing.Timer(1000, e -> refreshStateAsync());
         refreshTimer.setCoalesce(true);
-        chromeHideTimer = new Timer(2800, e -> {
+        chromeHideTimer = new javax.swing.Timer(2800, e -> {
             if (fullScreen) {
                 chromeTop.setVisible(false);
                 chromeBottom.setVisible(false);
@@ -500,6 +501,15 @@ final class EmbeddedPlayerView extends JPanel {
 
     void start(Models.Video video, String serverName, long requestId, double resumeAtSeconds) throws Exception {
         if (closing || !isDisplayable()) throw new IllegalStateException("El reproductor fue cerrado.");
+
+        // Prevent dialogs (e.g. SettingsDialog) from overlaying active playback
+        if (appOwner != null) {
+            for (Window w : appOwner.getOwnedWindows()) {
+                if (w instanceof JDialog d && d.isShowing()) {
+                    d.dispose();
+                }
+            }
+        }
 
         currentVideo = video;
         currentServerName = serverName;
