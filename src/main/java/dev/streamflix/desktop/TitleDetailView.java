@@ -230,7 +230,7 @@ final class TitleDetailView extends JPanel {
         String image = item.banner() != null && !item.banner().isBlank()
                 ? item.banner() : item.poster();
         ArtworkPanel background = new ArtworkPanel(image);
-        background.setFallbackText("");
+        background.setEditorialFallback(item.title());
 
         JPanel shade = new JPanel() {
             @Override protected void paintComponent(Graphics g) {

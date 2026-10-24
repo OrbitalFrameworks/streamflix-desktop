@@ -27,7 +27,7 @@ final class HeroPanel extends JLayeredPane {
 
         String image = item.banner() != null && !item.banner().isBlank() ? item.banner() : item.poster();
         backdrop = new ArtworkPanel(image);
-        backdrop.setFallbackText("");
+        backdrop.setEditorialFallback(item.title());
         add(backdrop, Integer.valueOf(0));
 
         shade = new JPanel() {

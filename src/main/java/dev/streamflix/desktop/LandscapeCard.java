@@ -46,7 +46,7 @@ final class LandscapeCard extends JLayeredPane {
         String image = item.banner() != null && !item.banner().isBlank()
                 ? cardArtworkUrl(item.banner()) : cardArtworkUrl(item.poster());
         artwork = new ArtworkPanel(image);
-        artwork.setFallbackText("");
+        artwork.setEditorialFallback(item.title());
         add(artwork, Integer.valueOf(0));
 
         overlay = new JPanel() {
