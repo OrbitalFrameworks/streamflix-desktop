@@ -1,5 +1,7 @@
 # Streamflix Desktop - PR Handoff Package & Candidate Evaluation Build
 
+> **ARCHIVO HISTÓRICO:** este handoff y sus SHA de candidato preceden al merge real del PR #14 y pueden contener afirmaciones de QA o identidades no confirmadas. No representan el estado actual de `main`. Para evidencia verificable consultar [VERIFIED_WINDOWS_GUI_2026-10-24.md](../VERIFIED_WINDOWS_GUI_2026-10-24.md).
+
 ## Metadata
 
 - **Candidate Branch**: `candidate/reconciled-ux-baseline`

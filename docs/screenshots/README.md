@@ -1,5 +1,7 @@
 # Streamflix Desktop Visual Artifacts & Redesign Verification
 
+> **EVIDENCIA HISTÓRICA, NO AUTORITATIVA.** Parte de las afirmaciones originales de esta página (incluidos controles de Ajustes) no se corroboró contra el ejecutable integrado. No utilizar estas capturas como certificación nativa Windows ni como prueba de aceptación del rediseño. La evidencia Windows verificada y sus limitaciones están en [VERIFIED_WINDOWS_GUI_2026-10-24.md](../VERIFIED_WINDOWS_GUI_2026-10-24.md).
+
 This directory documents executable visual proof and before/after redesign comparisons for Streamflix Desktop across key application surfaces adhering to Apple Design principles and `DESIGN.md`.
 
 ---
