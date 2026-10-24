@@ -304,6 +304,16 @@ public final class VodSearchCoordinatorTest {
                 throw new AssertionError("Interrupted while saturating executor", e);
             }
             require(allRunning, "all 32 pool threads must be actively running blocker tasks");
+            // A first rejection can occur before the last worker starts: workers
+            // may subsequently dequeue waiting blockers, opening queue slots again.
+            // Once all 32 workers have entered the barrier they cannot consume
+            // queue entries, so refill those newly available slots deterministically.
+            int refill = 0;
+            while (executor.getQueue().remainingCapacity() > 0
+                    && refill < VodSearchCoordinator.QUEUE_CAPACITY) {
+                blockerFutures.add(executor.submit(barrierTask));
+                refill++;
+            }
             require(executor.getQueue().remainingCapacity() == 0, "executor work queue must be fully saturated (remaining capacity 0)");
 
             // Create test providers that would each sleep for 10 seconds if executed

@@ -26,3 +26,7 @@ El informe `manifest.json` descargado de Actions registra `os=Windows Server 202
 Los directorios `docs/screenshots/`, `docs/e2e-evidence/gui-e2e-remediated/` y `docs/candidate-evaluation/` contienen materiales históricos de runs anteriores, incluidos reportes y capturas Linux y claims de QA no corroborados. **No deben utilizarse para afirmar que una captura es Windows nativa o que existen controles específicos de Ajustes**. Ante contradicción prevalecen los artefactos descargables del run Windows indicado y el código probado por ese SHA.
 
 La diferencia entre `PASS` técnico y aceptación de misión debe permanecer explícita: que Java/GUI/mpv funcionen en los fixtures no demuestra por sí solo que el diseño visual global satisfaga el objetivo.
+
+## Regresión determinista adicional (24 de octubre)
+
+Al reejecutar CI para corregir estas notas, Windows detectó una preparación **intermitente** de `VodSearchCoordinatorTest`: el primer rechazo del executor ocurría antes de que sus 32 workers quedaran efectivamente bloqueados; al arrancar, algunos consumían entradas de la cola y hacían falsa la aserción de saturación. La prueba ahora espera a que todos entren en la barrera y después rellena únicamente los huecos que quedan en la cola, sin cambiar el comportamiento del executor del producto. La suite Java completa y 10 repeticiones aisladas del test pasaron en Linux. El cierre requiere volver a ejecutar CI Windows sobre el commit que contenga este cambio; un `PASS` anterior no lo sustituye.
