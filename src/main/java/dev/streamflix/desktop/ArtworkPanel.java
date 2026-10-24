@@ -90,8 +90,8 @@ final class ArtworkPanel extends JPanel {
             // it uses only the title already supplied by the provider, never invented art.
             int w = Math.max(1, getWidth());
             int h = Math.max(1, getHeight());
-            int hash = fallbackText != null && !fallbackText.isBlank() ? Math.abs(fallbackText.hashCode()) : 0;
-            Color base = switch (hash % 4) {
+            int hash = fallbackText != null && !fallbackText.isBlank() ? fallbackText.hashCode() : 0;
+            Color base = switch (Math.floorMod(hash, 4)) {
                 case 0 -> new Color(28, 31, 43);
                 case 1 -> new Color(34, 29, 38);
                 case 2 -> new Color(25, 35, 43);
@@ -103,17 +103,20 @@ final class ArtworkPanel extends JPanel {
             g2.setPaint(new GradientPaint(0, 0, edge, w, h, base));
             g2.fillRect(0, 0, w, h);
 
+            // Editorial cards already have a real title/action overlay. Keep this
+            // fallback image-only, with a composed title-derived monogram rather
+            // than a second title or arbitrary fake film still.
+            if (editorialFallback) {
+                paintEditorialFallback(g2, w, h, hash);
+                return;
+            }
+
             int stripeX = Math.max(10, w / 11);
             g2.setColor(new Color(Theme.ACCENT.getRed(), Theme.ACCENT.getGreen(), Theme.ACCENT.getBlue(), 205));
             g2.fillRoundRect(stripeX, Math.max(10, h / 8), Math.max(3, w / 72), Math.max(28, h * 3 / 4), 5, 5);
             g2.setColor(new Color(255, 255, 255, 24));
             g2.fillRoundRect(stripeX + Math.max(12, w / 15), Math.max(10, h / 8),
                     Math.max(18, w / 4), Math.max(3, h / 42), 4, 4);
-
-            if (editorialFallback) {
-                paintEditorialFallback(g2, w, h, hash);
-                return;
-            }
 
             if (fallbackText == null || fallbackText.isBlank()) return;
 
@@ -145,32 +148,32 @@ final class ArtworkPanel extends JPanel {
     }
 
     private void paintEditorialFallback(Graphics2D g2, int w, int h, int hash) {
-        // A self-contained vector treatment: no invented cover photos, external
-        // downloads, repeated title label, or persistent image allocations.
-        int artW = Math.max(55, (int) (w * (w > 700 ? 0.37 : 0.44)));
-        int artH = Math.max(45, (int) (h * 0.77));
-        int x = Math.max(4, (int) (w * (w > 700 ? 0.57 : 0.48)));
-        int y = Math.max(6, (h - artH) / 2);
+        if (fallbackText == null || fallbackText.isBlank()) return;
+        // No invented poster: an editorial monogram made only from the provided
+        // title. The image composition remains readable when API artwork is
+        // temporarily unavailable; real artwork still takes priority.
+        int artW = Math.max(50, (int) (w * (w > 700 ? 0.41 : 0.55)));
+        int artH = Math.max(40, (int) (h * 0.84));
+        int x = Math.max(0, w - artW - Math.max(12, w / 15));
+        int y = Math.max(4, (h - artH) / 2);
         Color[] palette = {
-                new Color(127, 46, 52), new Color(61, 102, 123),
-                new Color(116, 79, 57), new Color(94, 73, 119)
+                new Color(166, 55, 65), new Color(55, 111, 134),
+                new Color(155, 96, 57), new Color(112, 76, 145)
         };
         Color hue = palette[Math.floorMod(hash, palette.length)];
-        g2.setPaint(new GradientPaint(x, y, new Color(hue.getRed(), hue.getGreen(), hue.getBlue(), 210),
-                x + artW, y + artH, new Color(15, 19, 27, 20)));
-        g2.fillRoundRect(x, y, artW, artH, Math.max(12, artW / 10), Math.max(12, artW / 10));
+        int radius = Math.max(10, Math.min(26, artW / 12));
+        g2.setPaint(new GradientPaint(x, y, hue, x + artW, y + artH,
+                new Color(Math.max(12, hue.getRed() / 3),
+                        Math.max(13, hue.getGreen() / 3), Math.max(18, hue.getBlue() / 3))));
+        g2.fillRoundRect(x, y, artW, artH, radius, radius);
 
-        // Recurring film-frame linework adds structure at all viewport sizes.
-        g2.setStroke(new BasicStroke(Math.max(1f, w / 780f)));
-        g2.setColor(new Color(244, 233, 219, 60));
-        g2.drawRoundRect(x + 9, y + 9, Math.max(1, artW - 18), Math.max(1, artH - 18),
-                Math.max(8, artW / 13), Math.max(8, artW / 13));
-        int dot = Math.max(2, Math.min(8, artW / 45));
-        for (int k = 0; k < 6; k++) {
-            int px = x + 18 + k * Math.max(6, (artW - 40) / 6);
-            g2.fillRoundRect(px, y + 15, dot, Math.max(2, dot / 2), 2, 2);
-            g2.fillRoundRect(px, y + artH - 19, dot, Math.max(2, dot / 2), 2, 2);
-        }
+        // Inset framing and a single diagonal light edge create depth without
+        // imitating a nonexistent movie poster or layering decorative UI cards.
+        g2.setColor(new Color(246, 247, 249, 64));
+        g2.setStroke(new BasicStroke(Math.max(1f, w / 950f)));
+        g2.drawRoundRect(x + 8, y + 8, Math.max(1, artW - 16), Math.max(1, artH - 16), radius, radius);
+        g2.setColor(new Color(255, 255, 255, 26));
+        g2.drawLine(x + artW / 3, y + 9, x + artW - 10, y + artH * 2 / 3);
 
         String key = fallbackText.strip();
         String[] words = key.split("\\s+");
@@ -182,9 +185,9 @@ final class ArtworkPanel extends JPanel {
             }
         }
         if (mark.isEmpty()) mark.append("S");
-        g2.setColor(new Color(250, 240, 225, 145));
+        g2.setColor(new Color(250, 247, 242, 220));
         g2.setFont(Theme.FONT_DISPLAY.deriveFont(Font.BOLD,
-                Math.max(20f, Math.min(205f, Math.min(artH * 0.46f, artW * 0.48f)))));
+                Math.max(22f, Math.min(220f, Math.min(artH * 0.49f, artW * 0.46f)))));
         FontMetrics fm = g2.getFontMetrics();
         String lettering = mark.toString();
         g2.drawString(lettering,

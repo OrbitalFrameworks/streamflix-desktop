@@ -58,7 +58,7 @@ jobs:
             if ($actualHash -ne $screenshot.sha256) { throw "Screenshot SHA-256 mismatch: $($screenshot.name)" }
             Write-Host "Captured $($screenshot.name): $($screenshot.viewport) on $($screenshot.desktop) (requested $($screenshot.requestedViewport); clipped=$($screenshot.clippedByDesktop))"
           }
-          Write-Host "Native Windows GUI E2E verified: $($manifest.screenshotsCount) screenshots adhering to anti-slop standards."
+          Write-Host "Native Windows GUI E2E verified: $($manifest.screenshotsCount) captured screenshots; design quality still requires independent visual review."
 
       - name: Upload native Windows GUI screenshots
         if: always()

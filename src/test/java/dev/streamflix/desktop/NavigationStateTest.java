@@ -19,6 +19,7 @@ public final class NavigationStateTest {
         testRealizedComponentInterruptionCancellation();
         testDetailNavigationStack();
         testCardTargetMatching();
+        testHeroCopyWordWrap();
         testPlayerTransitionSuppression();
         System.out.println("NavigationStateTest OK");
     }
@@ -62,6 +63,18 @@ public final class NavigationStateTest {
 
         HeroPanel hero = new HeroPanel(item1, it -> {});
         check("item-42".equals(hero.item().id()), "HeroPanel exposes target item ID");
+    }
+
+    private static void testHeroCopyWordWrap() {
+        JLabel label = new JLabel();
+        FontMetrics metrics = label.getFontMetrics(new Font("Dialog", Font.PLAIN, 14));
+        String synopsis = "Walter White, un profesor de química con cáncer inoperable, se asocia con un ex alumno.";
+        String wrapped = HeroPanel.wrappedHtml(synopsis, metrics, 230, 3);
+        check(wrapped.contains("<br>"), "Compact synopsis must wrap at a measured word boundary");
+        check(wrapped.contains("Walter White") && wrapped.contains("alumno"),
+                "A short synopsis must preserve all meaningful text when wrapping");
+        String clipped = HeroPanel.wrappedHtml(synopsis + " ".repeat(2) + synopsis, metrics, 150, 2);
+        check(clipped.contains("…"), "Long synopsis truncation must be indicated visibly");
     }
 
     private static void testTransitionConstants() {

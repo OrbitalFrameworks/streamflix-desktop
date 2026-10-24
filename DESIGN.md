@@ -136,6 +136,7 @@ The brand mark supplies personality; control icons stay neutral. Do not generate
 - Search remains enabled and focused during background work; Escape returns to its originating section.
 - Small desktop windows preserve critical playback actions and do not clip hero copy behind fixed minimum-width overlays.
 - At compact desktop widths, the primary navigation remains intact while search and settings move to a second toolbar row. Controls are never hidden, reduced to icon-only ambiguity, or removed from keyboard order to make a single row fit.
+- Home's vertical scroll container must track the actual viewport width. Wide catalog rails scroll inside their own regions; the hero must not extend beyond the visible content area when the Windows window is narrowed.
 
 ## Motion & Transition Invariants
 

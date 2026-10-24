@@ -11,6 +11,11 @@ final class HeroPanel extends JLayeredPane {
     private final JPanel shade;
     private final JPanel copy;
     private final JButton playButton;
+    private final JLabel titleLabel;
+    private final JLabel descriptionLabel;
+    private final String displayTitle;
+    private final String displayDescription;
+    private int lastTextWidth = -1;
 
     HeroPanel(Models.ShowItem item, Consumer<Models.ShowItem> onOpen) {
         this(item, onOpen, onOpen);
@@ -63,9 +68,10 @@ final class HeroPanel extends JLayeredPane {
         eyebrow.setForeground(new Color(220, 220, 224));
         eyebrow.setAlignmentX(Component.LEFT_ALIGNMENT);
 
+        displayTitle = item.title() == null ? "" : item.title();
         JLabel title = Theme.heading(
-                "<html><body style='width:580px'>" + escape(item.title()) + "</body></html>",
-                40f);
+                "<html>" + escape(displayTitle) + "</html>", 40f);
+        titleLabel = title;
         title.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         JPanel metadata = new JPanel(new FlowLayout(FlowLayout.LEFT, 9, 0));
@@ -90,8 +96,10 @@ final class HeroPanel extends JLayeredPane {
                 ? "Descubre este título en Streamflix."
                 : item.overview();
 
+        displayDescription = shorten(synopsis, 290);
         JLabel description = Theme.muted(
-                "<html><body style='width:565px'>" + escape(shorten(synopsis, 290)) + "</body></html>");
+                "<html>" + escape(displayDescription) + "</html>");
+        descriptionLabel = description;
         description.setForeground(new Color(218, 220, 225));
         description.setFont(Theme.FONT.deriveFont(14.5f));
         description.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -142,8 +150,21 @@ final class HeroPanel extends JLayeredPane {
         shade.setBounds(0, 0, w, h);
 
         int horizontalInset = Math.min(38, Math.max(18, w / 18));
-        int cw = Math.min(620, Math.max(0, Math.min(w - horizontalInset * 2, w * 3 / 5)));
+        // Both authentic backdrops and the offline title-derived composition
+        // reserve the right-hand editorial zone. At compact desktop sizes this
+        // also prevents long synopsis text from crossing the visual subject.
+        int safeCopyWidth = (int) (w * 0.52) - horizontalInset - 8;
+        int cw = Math.min(620, Math.max(0, Math.min(w - horizontalInset * 2, safeCopyWidth)));
         int ch = Math.min(350, Math.max(0, h - 70));
+        int textWidth = Math.max(100, cw - 8);
+        if (lastTextWidth != textWidth) {
+            lastTextWidth = textWidth;
+            // Swing's HTML body width can be ignored by JLabel's preferred
+            // size calculation, leaving a visibly clipped sentence. Explicit
+            // font-measured word boundaries make compact wrapping predictable.
+            titleLabel.setText(wrappedHtml(displayTitle, titleLabel.getFontMetrics(titleLabel.getFont()), textWidth - 14, 2));
+            descriptionLabel.setText(wrappedHtml(displayDescription, descriptionLabel.getFontMetrics(descriptionLabel.getFont()), textWidth - 14, 3));
+        }
         copy.setBounds(horizontalInset, Math.max(24, h - ch - 30), cw, ch);
     }
 
@@ -152,6 +173,42 @@ final class HeroPanel extends JLayeredPane {
         int cut = value.lastIndexOf(' ', max);
         if (cut < max / 2) cut = max;
         return value.substring(0, cut).strip() + "…";
+    }
+
+    static String wrappedHtml(String value, FontMetrics metrics, int width, int maxLines) {
+        StringBuilder current = new StringBuilder();
+        java.util.List<String> lines = new java.util.ArrayList<>();
+        int limit = Math.max(60, width);
+        boolean truncated = false;
+        for (String word : (value == null ? "" : value.strip()).split("\\s+")) {
+            if (word.isBlank()) continue;
+            String candidate = current.isEmpty() ? word : current + " " + word;
+            if (!current.isEmpty() && metrics.stringWidth(candidate) > limit) {
+                lines.add(current.toString());
+                current.setLength(0);
+                if (lines.size() >= maxLines) {
+                    truncated = true;
+                    break;
+                }
+            }
+            current.append(current.isEmpty() ? word : " " + word);
+        }
+        if (!current.isEmpty() && lines.size() < maxLines) lines.add(current.toString());
+        if (lines.isEmpty()) lines.add("");
+        if (truncated) {
+            int last = lines.size() - 1;
+            String tail = lines.get(last);
+            while (tail.length() > 1 && metrics.stringWidth(tail + "…") > limit) {
+                tail = tail.substring(0, tail.length() - 1);
+            }
+            lines.set(last, tail.stripTrailing() + "…");
+        }
+        StringBuilder html = new StringBuilder("<html>");
+        for (int i = 0; i < lines.size(); i++) {
+            if (i > 0) html.append("<br>");
+            html.append(escape(lines.get(i)));
+        }
+        return html.append("</html>").toString();
     }
 
     private static String escape(String value) {
