@@ -24,7 +24,9 @@ final class StreamingSkeleton extends JComponent {
 
     @Override public void addNotify() {
         super.addNotify();
-        timer.start();
+        if (!SmoothContentHost.isReducedMotion()) {
+            timer.start();
+        }
     }
 
     @Override public void removeNotify() {
@@ -70,16 +72,18 @@ final class StreamingSkeleton extends JComponent {
         g2.setColor(base);
         g2.fillRoundRect(x, y, w, h, arc, arc);
 
-        int shimmerWidth = Math.max(90, w / 4);
-        int shimmerX = x - shimmerWidth + Math.round((w + shimmerWidth * 2) * phase);
-        GradientPaint shimmer = new GradientPaint(
-                shimmerX, y, new Color(45, 51, 64, 0),
-                shimmerX + shimmerWidth, y, shine
-        );
-        g2.setPaint(shimmer);
-        Shape oldClip = g2.getClip();
-        g2.clip(new RoundRectangle2D.Float(x, y, w, h, arc, arc));
-        g2.fillRect(shimmerX, y, shimmerWidth, h);
-        g2.setClip(oldClip);
+        if (!SmoothContentHost.isReducedMotion()) {
+            int shimmerWidth = Math.max(90, w / 4);
+            int shimmerX = x - shimmerWidth + Math.round((w + shimmerWidth * 2) * phase);
+            GradientPaint shimmer = new GradientPaint(
+                    shimmerX, y, new Color(45, 51, 64, 0),
+                    shimmerX + shimmerWidth, y, shine
+            );
+            g2.setPaint(shimmer);
+            Shape oldClip = g2.getClip();
+            g2.clip(new RoundRectangle2D.Float(x, y, w, h, arc, arc));
+            g2.fillRect(shimmerX, y, shimmerWidth, h);
+            g2.setClip(oldClip);
+        }
     }
 }

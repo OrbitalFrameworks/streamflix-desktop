@@ -31,6 +31,11 @@ final class TitleDetailView extends JPanel {
     private final JPanel recommendationArea = new JPanel(new BorderLayout());
     private final JLabel status = Theme.muted(" ");
     private volatile List<Models.Episode> episodes = List.of();
+    private JLabel titleLabel;
+    private JLabel overviewLabel;
+    private String displayTitle;
+    private String displayOverview;
+    private int lastTextWidth = -1;
 
     TitleDetailView(Window owner, Provider provider, Models.ShowItem item, Runnable onBack) {
         this(owner, provider, item, onBack, false, () -> {});
@@ -258,6 +263,8 @@ final class TitleDetailView extends JPanel {
         copy.setLayout(new BoxLayout(copy, BoxLayout.Y_AXIS));
 
         JButton back = Theme.button("Volver", StreamflixIcons.Glyph.BACK);
+        back.setToolTipText("Volver a la vista anterior (Esc)");
+        back.getAccessibleContext().setAccessibleName("Volver a la vista anterior");
         back.addActionListener(e -> onBack.run());
 
         JLayeredPane hero = new JLayeredPane() {
@@ -268,9 +275,21 @@ final class TitleDetailView extends JPanel {
                 background.setBounds(0, 0, w, h);
                 shade.setBounds(0, 0, w, h);
                 int inset = Math.min(40, Math.max(18, w / 18));
-                copy.setBounds(inset, Math.max(54, h - 360),
-                        Math.min(780, Math.max(0, w - inset * 2)), Math.min(330, Math.max(0, h - 90)));
-                back.setBounds(30, 24, 105, 38);
+                int safeCopyWidth = (int) (w * 0.58) - inset - 8;
+                int cw = Math.min(780, Math.max(0, Math.min(w - inset * 2, safeCopyWidth > 280 ? safeCopyWidth : w - inset * 2)));
+                int ch = Math.min(340, Math.max(0, h - 80));
+                int textWidth = Math.max(100, cw - 8);
+                if (lastTextWidth != textWidth) {
+                    lastTextWidth = textWidth;
+                    if (titleLabel != null) {
+                        titleLabel.setText(HeroPanel.wrappedHtml(displayTitle, titleLabel.getFontMetrics(titleLabel.getFont()), textWidth - 14, 2));
+                    }
+                    if (overviewLabel != null) {
+                        overviewLabel.setText(HeroPanel.wrappedHtml(displayOverview, overviewLabel.getFontMetrics(overviewLabel.getFont()), textWidth - 14, 4));
+                    }
+                }
+                copy.setBounds(inset, Math.max(54, h - ch - 24), cw, ch);
+                back.setBounds(inset > 24 ? 30 : 18, 24, 105, 38);
             }
         };
         hero.setPreferredSize(new Dimension(1200, 520));
@@ -285,8 +304,10 @@ final class TitleDetailView extends JPanel {
         eyebrow.setForeground(new Color(224, 226, 230));
         eyebrow.setAlignmentX(Component.LEFT_ALIGNMENT);
 
+        displayTitle = item.title() == null ? "" : item.title();
         JLabel title = Theme.heading(
-                "<html><body style='width:720px'>" + escapeHtml(item.title()) + "</body></html>", 38f);
+                "<html>" + escapeHtml(displayTitle) + "</html>", 38f);
+        this.titleLabel = title;
         title.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         JPanel meta = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
@@ -300,7 +321,7 @@ final class TitleDetailView extends JPanel {
             meta.add(value);
         }
         if (item.rating() != null && item.rating() > 0) {
-            JLabel rating = new JLabel(String.format("%.1f / 10", item.rating()));
+            JLabel rating = new JLabel(String.format("★ %.1f / 10", item.rating()));
             rating.setForeground(new Color(232, 211, 96));
             rating.setFont(Theme.FONT_BOLD.deriveFont(12.5f));
             meta.add(rating);
@@ -314,8 +335,10 @@ final class TitleDetailView extends JPanel {
         String overviewText = item.overview() == null || item.overview().isBlank()
                 ? "Sin descripción disponible."
                 : item.overview();
+        displayOverview = shorten(overviewText, 380);
         JLabel overview = Theme.muted(
-                "<html><body style='width:710px'>" + escapeHtml(shorten(overviewText, 380)) + "</body></html>");
+                "<html>" + escapeHtml(displayOverview) + "</html>");
+        this.overviewLabel = overview;
         overview.setForeground(new Color(220, 223, 228));
         overview.setFont(Theme.FONT.deriveFont(14.5f));
         overview.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -364,10 +387,14 @@ final class TitleDetailView extends JPanel {
         boolean initiallyFavorite = UserData.isFavorite(provider.id(), item.id());
         JButton favorite = Theme.button(initiallyFavorite ? "En mi lista" : "Mi lista",
                 initiallyFavorite ? StreamflixIcons.Glyph.CHECK : StreamflixIcons.Glyph.PLUS);
+        favorite.setToolTipText(initiallyFavorite ? "Quitar de Mi lista" : "Guardar en Mi lista");
+        favorite.getAccessibleContext().setAccessibleName(initiallyFavorite ? "Quitar de Mi lista" : "Guardar en Mi lista");
         favorite.addActionListener(e -> {
             UserData.toggleFavorite(provider.id(), item);
             boolean selected = UserData.isFavorite(provider.id(), item.id());
             favorite.setText(selected ? "En mi lista" : "Mi lista");
+            favorite.setToolTipText(selected ? "Quitar de Mi lista" : "Guardar en Mi lista");
+            favorite.getAccessibleContext().setAccessibleName(selected ? "Quitar de Mi lista" : "Guardar en Mi lista");
             Theme.setButtonIcon(favorite,
                     selected ? StreamflixIcons.Glyph.CHECK : StreamflixIcons.Glyph.PLUS);
         });

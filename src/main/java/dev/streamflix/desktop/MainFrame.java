@@ -1576,7 +1576,7 @@ final class MainFrame extends JFrame {
 
     private void rebuildGridColumns() {
         int usable = Math.max(900, getWidth() - 86);
-        int columns = Math.max(2, Math.min(5, usable / 310));
+        int columns = Math.max(2, Math.min(5, usable / 290));
         grid.setLayout(new GridLayout(0, columns, 18, 24));
     }
 

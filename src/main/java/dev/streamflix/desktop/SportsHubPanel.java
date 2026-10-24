@@ -154,7 +154,7 @@ final class SportsHubPanel extends JPanel {
         if (snapshot.limitedCoverage()) {
             JPanel notice = Theme.surface();
             notice.setLayout(new BorderLayout(12, 0));
-            JLabel copy = Theme.muted("<html><body style='width:760px'>Streamflix combina únicamente fuentes gratuitas. "
+            JLabel copy = Theme.muted("<html><body>Streamflix combina únicamente fuentes gratuitas. "
                     + "La cobertura puede variar por deporte o competición si una fuente externa está temporalmente limitada.</body></html>");
             notice.add(copy, BorderLayout.CENTER);
             body.add(notice);
@@ -205,12 +205,12 @@ final class SportsHubPanel extends JPanel {
     private JComponent eventCard(SportsEvent event, boolean live) {
         JPanel card = Theme.surface();
         card.setLayout(new BorderLayout(18, 0));
-        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 128));
-        card.setPreferredSize(new Dimension(980, 118));
+        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 142));
+        card.setPreferredSize(new Dimension(880, 136));
 
         JPanel identity = new JPanel(new BorderLayout(12, 0));
         identity.setOpaque(false);
-        identity.setPreferredSize(new Dimension(560, 90));
+        identity.setPreferredSize(new Dimension(540, 100));
 
         JPanel badges = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 9));
         badges.setOpaque(false);
@@ -239,7 +239,7 @@ final class SportsHubPanel extends JPanel {
         JPanel right = new JPanel();
         right.setOpaque(false);
         right.setLayout(new BoxLayout(right, BoxLayout.Y_AXIS));
-        right.setPreferredSize(new Dimension(230, 86));
+        right.setPreferredSize(new Dimension(210, 118));
 
         String score = scoreLabel(event);
         JLabel scoreLabel = Theme.heading(score, live ? 21f : 16f);

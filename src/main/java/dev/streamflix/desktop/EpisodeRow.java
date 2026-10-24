@@ -9,8 +9,10 @@ import java.util.function.Consumer;
 
 /** Streaming-style episode row with still image, synopsis, progress and explicit actions. */
 final class EpisodeRow extends JPanel {
+    private final Models.Episode episode;
     private final double progress;
     private boolean hovered;
+    private boolean focused;
 
     EpisodeRow(Models.Episode episode,
                Consumer<Models.Episode> onPlay,
@@ -22,6 +24,7 @@ final class EpisodeRow extends JPanel {
                Consumer<Models.Episode> onPlay,
                BiConsumer<Models.Episode, Component> onServer,
                double progress) {
+        this.episode = episode;
         this.progress = Math.max(0.0, Math.min(1.0, progress));
 
         setLayout(new BorderLayout(16, 0));
@@ -30,6 +33,7 @@ final class EpisodeRow extends JPanel {
         setMaximumSize(new Dimension(Integer.MAX_VALUE, 126));
         setPreferredSize(new Dimension(760, 126));
         setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        setFocusable(true);
 
         ArtworkPanel still = new ArtworkPanel(episode.poster());
         still.setPreferredSize(new Dimension(176, 99));
@@ -91,9 +95,17 @@ final class EpisodeRow extends JPanel {
 
         add(actions, BorderLayout.EAST);
 
+        play.setToolTipText("Reproducir " + displayTitle);
+        play.getAccessibleContext().setAccessibleName("Reproducir " + displayTitle);
+        server.setToolTipText("Opciones de reproducción para " + displayTitle);
+        server.getAccessibleContext().setAccessibleName("Opciones de reproducción para " + displayTitle);
+
+        getAccessibleContext().setAccessibleName(displayTitle + " · " + overviewText);
+        setToolTipText(displayTitle);
+
         MouseAdapter interaction = new MouseAdapter() {
             @Override public void mouseClicked(MouseEvent e) {
-                if (e.getClickCount() == 2) onPlay.accept(episode);
+                if (e.getClickCount() == 2 || SwingUtilities.isLeftMouseButton(e)) onPlay.accept(episode);
             }
 
             @Override public void mouseEntered(MouseEvent e) {
@@ -109,6 +121,34 @@ final class EpisodeRow extends JPanel {
         addMouseListener(interaction);
         still.addMouseListener(interaction);
         copy.addMouseListener(interaction);
+
+        addFocusListener(new FocusAdapter() {
+            @Override public void focusGained(FocusEvent e) {
+                focused = true;
+                repaint();
+            }
+
+            @Override public void focusLost(FocusEvent e) {
+                focused = false;
+                repaint();
+            }
+        });
+
+        addKeyListener(new KeyAdapter() {
+            @Override public void keyPressed(KeyEvent e) {
+                if (e.getKeyCode() == KeyEvent.VK_ENTER || e.getKeyCode() == KeyEvent.VK_SPACE) {
+                    onPlay.accept(episode);
+                }
+            }
+        });
+        registerKeyboardAction(e -> onPlay.accept(episode),
+                KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), JComponent.WHEN_FOCUSED);
+        registerKeyboardAction(e -> onPlay.accept(episode),
+                KeyStroke.getKeyStroke(KeyEvent.VK_SPACE, 0), JComponent.WHEN_FOCUSED);
+    }
+
+    Models.Episode episode() {
+        return episode;
     }
 
     @Override protected void paintComponent(Graphics g) {
@@ -121,6 +161,13 @@ final class EpisodeRow extends JPanel {
             g2.fillRoundRect(0, 0, w, h, Theme.RADIUS_CONTROL, Theme.RADIUS_CONTROL);
             g2.setColor(hovered ? new Color(255, 255, 255, 36) : Theme.BORDER);
             g2.drawRoundRect(0, 0, w - 1, h - 1, Theme.RADIUS_CONTROL, Theme.RADIUS_CONTROL);
+
+            if (focused) {
+                g2.setColor(Theme.FOCUS);
+                g2.setStroke(new BasicStroke(2f));
+                g2.drawRoundRect(1, 1, Math.max(0, w - 3), Math.max(0, h - 3),
+                        Theme.RADIUS_CONTROL - 2, Theme.RADIUS_CONTROL - 2);
+            }
 
             if (progress > 0.0001 && progress < 0.995) {
                 int barHeight = 4;

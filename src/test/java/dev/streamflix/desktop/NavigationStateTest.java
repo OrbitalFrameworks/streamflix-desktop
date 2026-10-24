@@ -21,6 +21,9 @@ public final class NavigationStateTest {
         testCardTargetMatching();
         testHeroCopyWordWrap();
         testPlayerTransitionSuppression();
+        testEpisodeRowAccessibilityAndFocus();
+        testSportsCompactCardAccessibilityAndFocus();
+        testStreamingSkeletonReducedMotion();
         System.out.println("NavigationStateTest OK");
     }
 
@@ -378,6 +381,53 @@ public final class NavigationStateTest {
     private static void check(boolean condition, String message) {
         if (!condition) {
             throw new AssertionError("Check failed: " + message);
+        }
+    }
+
+    private static void testEpisodeRowAccessibilityAndFocus() {
+        Models.Episode ep = new Models.Episode("ep-1", 1, 1, "Piloto", "Sinopsis del episodio", "http://poster");
+        AtomicBoolean played = new AtomicBoolean(false);
+        EpisodeRow row = new EpisodeRow(ep, it -> played.set(true), (it, c) -> {});
+        check(row.isFocusable(), "EpisodeRow must be focusable for keyboard navigation");
+        check(row.getAccessibleContext() != null, "EpisodeRow must have accessible context");
+        check(row.getAccessibleContext().getAccessibleName().contains("Piloto"), "Accessible name must contain episode title");
+        check("ep-1".equals(row.episode().id()), "EpisodeRow exposes episode");
+
+        // Test Enter key activates play via KeyListener
+        for (java.awt.event.KeyListener kl : row.getKeyListeners()) {
+            kl.keyPressed(new KeyEvent(row, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_ENTER, KeyEvent.CHAR_UNDEFINED));
+        }
+        check(played.get(), "Enter key must trigger episode playback");
+    }
+
+    private static void testSportsCompactCardAccessibilityAndFocus() {
+        SportsEvent ev = new SportsEvent("ev-1", "Fútbol", "Liga", "Equipo A vs B", "Equipo A", "Equipo B",
+                "http://h", "http://a", 1, 0, "En vivo", "45'",
+                java.time.Instant.now(), java.util.List.of(new SportsBroadcaster("ch1", "ES", "http://s")));
+        AtomicBoolean played = new AtomicBoolean(false);
+        SportsCompactCard card = new SportsCompactCard(ev, it -> played.set(true));
+        check(card.isFocusable(), "SportsCompactCard must be focusable");
+        check(card.getAccessibleContext() != null, "SportsCompactCard must have accessible context");
+        check(card.getAccessibleContext().getAccessibleName().contains("Equipo A"), "Accessible name must contain team");
+
+        // Test Enter key activates play via KeyListener
+        for (java.awt.event.KeyListener kl : card.getKeyListeners()) {
+            kl.keyPressed(new KeyEvent(card, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_ENTER, KeyEvent.CHAR_UNDEFINED));
+        }
+        check(played.get(), "Enter key must trigger sports event playback");
+    }
+
+    private static void testStreamingSkeletonReducedMotion() {
+        String original = System.getProperty("streamflix.reducedMotion");
+        try {
+            System.setProperty("streamflix.reducedMotion", "true");
+            StreamingSkeleton skeleton = new StreamingSkeleton();
+            skeleton.addNotify();
+            drainEdt();
+            skeleton.removeNotify();
+        } finally {
+            if (original != null) System.setProperty("streamflix.reducedMotion", original);
+            else System.clearProperty("streamflix.reducedMotion");
         }
     }
 
