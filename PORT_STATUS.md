@@ -11,7 +11,7 @@ Current public stable release: **1.3.9**.
 | Windows desktop UI | Implemented | Swing/JVM, mouse + keyboard, HiDPI-aware |
 | Fluid navigation & RAM cache | Implemented | 140 ms interruptible crossfade, reduced-motion compliance, bounded in-memory catalog/Home cache with TTL, view recycling, backstack for detail views, and scroll/focus preservation |
 | Visual identity / iconography | Implemented in 1.3.8 | Streamflix S app mark, Windows package icon and DPI-independent vector controls replace legacy Unicode glyphs |
-| Movies / Series / Search | Implemented | Concurrent multi-provider VOD search across TMDb and all registered VOD providers with bounded timeouts, canonical deduplication, relevance ranking, and candidate tracking |
+| Movies / Series / Search | Implemented | Concurrent multi-provider VOD search across TMDb and all registered VOD providers with bounded executor (AUD-001), deadline collection, cancellable HTTP requests, canonical deduplication, relevance ranking, and candidate tracking |
 | Catalog filters | Implemented | Popular and genre filters with progressive loading |
 | Home rails | Implemented | Contextual horizontal wheel, arrows, Ver más |
 | Seasons / episodes | Implemented | Includes specials and progress-aware episode UI |
@@ -46,7 +46,8 @@ Validated on Windows:
 Deterministic gates currently include JSON, provider/TMDb/M3U fixtures, extractors, dependency smoke,
 user data, mpv player, playback fallback/server ranking, updater parsing, image disk cache, diagnostics privacy,
 mpv bootstrap, concurrent VOD search, provider health stats, playback failover coordinator, catalog RAM cache,
-navigation state/motion tests, and embedded player integration tests.
+navigation state/motion tests, embedded player integration tests, and WindowsNativeGuiE2E multi-viewport
+layout validation (1480x900, 1280x800, 1024x768), visual dialog absence checks, and clean player restoration.
 
 ## Release engineering
 

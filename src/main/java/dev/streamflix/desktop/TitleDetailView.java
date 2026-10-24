@@ -227,17 +227,10 @@ final class TitleDetailView extends JPanel {
     }
 
     private JComponent buildHero() {
-        JLayeredPane hero = new JLayeredPane();
-        hero.setPreferredSize(new Dimension(1200, 520));
-        hero.setMaximumSize(new Dimension(Integer.MAX_VALUE, 520));
-        hero.setOpaque(true);
-        hero.setBackground(Color.BLACK);
-
         String image = item.banner() != null && !item.banner().isBlank()
                 ? item.banner() : item.poster();
         ArtworkPanel background = new ArtworkPanel(image);
-        background.setFallbackText("");
-        hero.add(background, Integer.valueOf(0));
+        background.setEditorialFallback(item.title());
 
         JPanel shade = new JPanel() {
             @Override protected void paintComponent(Graphics g) {
@@ -259,11 +252,34 @@ final class TitleDetailView extends JPanel {
             }
         };
         shade.setOpaque(false);
-        hero.add(shade, Integer.valueOf(1));
 
         JPanel copy = new JPanel();
         copy.setOpaque(false);
         copy.setLayout(new BoxLayout(copy, BoxLayout.Y_AXIS));
+
+        JButton back = Theme.button("Volver", StreamflixIcons.Glyph.BACK);
+        back.addActionListener(e -> onBack.run());
+
+        JLayeredPane hero = new JLayeredPane() {
+            @Override public void doLayout() {
+                super.doLayout();
+                int w = getWidth();
+                int h = getHeight();
+                background.setBounds(0, 0, w, h);
+                shade.setBounds(0, 0, w, h);
+                int inset = Math.min(40, Math.max(18, w / 18));
+                copy.setBounds(inset, Math.max(54, h - 360),
+                        Math.min(780, Math.max(0, w - inset * 2)), Math.min(330, Math.max(0, h - 90)));
+                back.setBounds(30, 24, 105, 38);
+            }
+        };
+        hero.setPreferredSize(new Dimension(1200, 520));
+        hero.setMaximumSize(new Dimension(Integer.MAX_VALUE, 520));
+        hero.setOpaque(true);
+        hero.setBackground(Color.BLACK);
+
+        hero.add(background, Integer.valueOf(0));
+        hero.add(shade, Integer.valueOf(1));
 
         JLabel eyebrow = Theme.eyebrow(item.type() == Models.ShowType.MOVIE ? "PELÍCULA" : "SERIE");
         eyebrow.setForeground(new Color(224, 226, 230));
@@ -380,34 +396,7 @@ final class TitleDetailView extends JPanel {
         copy.add(status);
 
         hero.add(copy, Integer.valueOf(2));
-
-        JButton back = Theme.button("Volver", StreamflixIcons.Glyph.BACK);
-        back.addActionListener(e -> onBack.run());
         hero.add(back, Integer.valueOf(3));
-
-        hero.addComponentListener(new java.awt.event.ComponentAdapter() {
-            @Override public void componentResized(java.awt.event.ComponentEvent e) {
-                int w = hero.getWidth();
-                int h = hero.getHeight();
-                background.setBounds(0, 0, w, h);
-                shade.setBounds(0, 0, w, h);
-                int inset = Math.min(40, Math.max(18, w / 18));
-                copy.setBounds(inset, Math.max(54, h - 360),
-                        Math.min(780, Math.max(0, w - inset * 2)), Math.min(330, Math.max(0, h - 90)));
-                back.setBounds(30, 24, 105, 38);
-            }
-        });
-
-        SwingUtilities.invokeLater(() -> {
-            int w = hero.getWidth();
-            int h = hero.getHeight();
-            background.setBounds(0, 0, w, h);
-            shade.setBounds(0, 0, w, h);
-            int inset = Math.min(40, Math.max(18, w / 18));
-            copy.setBounds(inset, Math.max(54, h - 360),
-                    Math.min(780, Math.max(0, w - inset * 2)), Math.min(330, Math.max(0, h - 90)));
-            back.setBounds(30, 24, 105, 38);
-        });
 
         return hero;
     }
@@ -997,7 +986,7 @@ final class TitleDetailView extends JPanel {
 
         int min = bar.getMinimum();
         int max = Math.max(min, bar.getMaximum() - bar.getVisibleAmount());
-        Timer activeTimer = (Timer) bar.getClientProperty("streamflix.smoothScrollTimer");
+        javax.swing.Timer activeTimer = (javax.swing.Timer) bar.getClientProperty("streamflix.smoothScrollTimer");
         Object targetProperty = bar.getClientProperty("streamflix.smoothScrollTarget");
         double base = activeTimer != null && activeTimer.isRunning() && targetProperty instanceof Double target
                 ? target
@@ -1007,7 +996,7 @@ final class TitleDetailView extends JPanel {
 
         if (activeTimer != null && activeTimer.isRunning()) return;
 
-        Timer timer = new Timer(16, null);
+        javax.swing.Timer timer = new javax.swing.Timer(16, null);
         timer.setCoalesce(true);
         timer.addActionListener(e -> {
             Object value = bar.getClientProperty("streamflix.smoothScrollTarget");
@@ -1017,7 +1006,7 @@ final class TitleDetailView extends JPanel {
 
             if (Math.abs(distance) <= 1.0) {
                 bar.setValue((int) Math.round(desired));
-                ((Timer) e.getSource()).stop();
+                ((javax.swing.Timer) e.getSource()).stop();
                 return;
             }
 

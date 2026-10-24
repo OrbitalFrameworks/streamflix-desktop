@@ -187,58 +187,60 @@ final class Theme {
     }
 
     static JPanel surface() {
-        return cardPanel(PANEL, BORDER, RADIUS_CONTROL, SPACE_4);
+        return new RoundedPanel(PANEL, BORDER, RADIUS_CONTROL, new Insets(16, 16, 16, 16));
     }
 
-    static JPanel cardPanel() {
-        return cardPanel(PANEL, BORDER, RADIUS_CONTROL, SPACE_4 + SPACE_2);
+    static JPanel surface(int radius, Insets padding) {
+        return new RoundedPanel(PANEL, BORDER, radius, padding);
     }
 
-    static JPanel cardPanel(Color bg, Color border, int radius, int padding) {
-        JPanel p = new JPanel() {
-            @Override protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                try {
-                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                    g2.setColor(bg);
-                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), radius, radius);
-                    if (border != null) {
-                        g2.setColor(border);
-                        g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, radius, radius);
-                    }
-                } finally {
-                    g2.dispose();
-                }
+    static final class RoundedPanel extends JPanel {
+        private Color background;
+        private Color border;
+        private final int radius;
+
+        RoundedPanel(Color background, Color border, int radius, Insets padding) {
+            super();
+            this.background = background;
+            this.border = border;
+            this.radius = radius;
+            setOpaque(false);
+            if (padding != null) {
+                setBorder(new EmptyBorder(padding));
             }
-        };
-        p.setOpaque(false);
-        p.setBorder(new EmptyBorder(padding, padding, padding, padding));
-        return p;
-    }
-
-    static JPanel stateCard(String title, String message, String actionText, Runnable action) {
-        JPanel card = cardPanel(PANEL, BORDER, RADIUS_CONTROL, SPACE_4 + SPACE_2);
-        card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
-        card.setPreferredSize(new Dimension(560, 180));
-        card.setMaximumSize(new Dimension(560, 180));
-
-        JLabel heading = heading(title, 20f);
-        heading.setAlignmentX(Component.LEFT_ALIGNMENT);
-        JLabel body = muted("<html><body style='width:455px'>" + (message != null ? message : "") + "</body></html>");
-        body.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        card.add(heading);
-        card.add(Box.createVerticalStrut(SPACE_2 + 1));
-        card.add(body);
-
-        if (actionText != null && action != null) {
-            card.add(Box.createVerticalStrut(SPACE_4 + 2));
-            JButton actionButton = primaryButton(actionText);
-            actionButton.setAlignmentX(Component.LEFT_ALIGNMENT);
-            actionButton.addActionListener(e -> action.run());
-            card.add(actionButton);
         }
-        return card;
+
+        @Override public void setBackground(Color bg) {
+            super.setBackground(bg);
+            this.background = bg;
+            repaint();
+        }
+
+        public void setBorderColor(Color border) {
+            this.border = border;
+            repaint();
+        }
+
+        @Override protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            try {
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                int w = getWidth();
+                int h = getHeight();
+                Color bg = background != null ? background : getBackground();
+                if (bg != null && bg.getAlpha() > 0) {
+                    g2.setColor(bg);
+                    g2.fillRoundRect(0, 0, w, h, radius, radius);
+                }
+                if (border != null && border.getAlpha() > 0) {
+                    g2.setColor(border);
+                    g2.drawRoundRect(0, 0, w - 1, h - 1, radius, radius);
+                }
+            } finally {
+                g2.dispose();
+            }
+            super.paintComponent(g);
+        }
     }
 
     private static final class FlatButton extends JButton {

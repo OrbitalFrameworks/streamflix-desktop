@@ -59,12 +59,16 @@ Regression coverage:
 - TmdbTitleIndexTest
 - MainFrameSearchTest
 
-## 6. Concurrent multi-provider VOD search with bounded timeouts and canonical deduplication
+## 6. Concurrent multi-provider VOD search with bounded executor and deadline-based collection (AUD-001)
 
-When searching in Home, Movies, or Series scope, Streamflix fans out concurrent asynchronous queries across all compatible registered VOD providers with a bounded per-provider timeout (4.5s).
+When searching in Home, Movies, or Series scope, Streamflix fans out concurrent asynchronous queries across all compatible registered VOD providers with a bounded executor, overall deadline collection, and cancellable HTTP requests (AUD-001 remediation).
 
 Rules:
-- Slow or unresponsive providers are timed out without blocking responsive providers;
+- Bounded thread pool executor (`corePoolSize=16`, `maxPoolSize=32`, bounded work queue of 64 with `allowCoreThreadTimeOut`) prevents thread runaway during concurrent searches;
+- Non-blocking saturation handler (`AbortPolicy` with graceful capture, replacing `CallerRunsPolicy` under AUD-001-REOPEN): immediately records overflow provider queries as rejected/empty and counts down completion latches without executing network/search requests inline on the coordinating SwingWorker thread, guaranteeing strict adherence to the search deadline;
+- Strict deadline-based result collection guarantees overall search duration does not exceed the timeout (4.5s), avoiding sequential blocking across multiple slow providers;
+- Slow or unresponsive providers are cancelled with thread interruption (`future.cancel(true)`), immediately terminating underlying HTTP connections via `Http.java` interruptible hooks;
+- Completed provider results are preserved and collected even if other providers time out;
 - Results are deduplicated by canonical TMDb ID or normalized semantic key (title + year + type);
 - Richer metadata (TMDb / official posters / ratings) is preserved for the primary display card;
 - Alternative candidate sources are recorded to enable instant sequential playback failover;
@@ -73,4 +77,5 @@ Rules:
 
 Regression coverage:
 - VodSearchCoordinatorTest
+- HttpRegressionTest
 - ProviderFallbackCoordinatorTest

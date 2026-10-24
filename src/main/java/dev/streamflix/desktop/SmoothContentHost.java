@@ -16,7 +16,7 @@ final class SmoothContentHost extends JPanel {
     static final int FRAME_INTERVAL_MS = 16;       // 16 ms timer intervals on EDT; display frame rate is hardware-dependent
 
     private final CardLayout cardLayout = new CardLayout();
-    private final Timer transitionTimer;
+    private final javax.swing.Timer transitionTimer;
     private BufferedImage transitionSnapshot;
     private float transitionAlpha = 0f;
     private long transitionStartTime = 0L;
@@ -112,7 +112,7 @@ final class SmoothContentHost extends JPanel {
         setOpaque(true);
         setBackground(Theme.BG);
 
-        transitionTimer = new Timer(FRAME_INTERVAL_MS, e -> {
+        transitionTimer = new javax.swing.Timer(FRAME_INTERVAL_MS, e -> {
             long elapsed = System.currentTimeMillis() - transitionStartTime;
             float progress = (float) elapsed / (float) TRANSITION_DURATION_MS;
             if (progress >= 1.0f) {
@@ -275,7 +275,9 @@ final class SmoothContentHost extends JPanel {
         final long currentGen = ++transitionGeneration;
 
         boolean reducedMotion = isReducedMotion();
+        boolean isPlayerTransition = "PLAYER".equals(name) || "PLAYER".equals(currentCardName);
         boolean canAnimate = !reducedMotion
+                && !isPlayerTransition
                 && (forceAnimationForTesting || (!GraphicsEnvironment.isHeadless()
                         && isShowing()
                         && getWidth() > 0

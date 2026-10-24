@@ -1,4 +1,4 @@
-param([switch]$JarOnly)
+param([switch]$JarOnly, [switch]$RunGuiE2E)
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
 function Invoke-Checked {
@@ -52,10 +52,26 @@ $manifest = "Manifest-Version: 1.0`nMain-Class: dev.streamflix.desktop.App`nImpl
 [IO.File]::WriteAllText((Join-Path $PSScriptRoot 'build\MANIFEST.MF'), $manifest, (New-Object Text.UTF8Encoding $false))
 Invoke-Checked $jar @('--create','--file','build\streamflix-desktop.jar','--date=2020-01-01T00:00:00Z','--manifest','build\MANIFEST.MF','-C','build\classes','.')
 Invoke-Checked $javac (@('--release','17','-encoding','UTF-8','-cp',("build\classes;" + $depCp),'-d','build\test-classes') + $tests)
-foreach ($test in @('JsonTest','ProviderFixtureTest','TmdbFixtureTest','TmdbTitleIndexTest','M3uPlaylistTest','M3uLiveProviderTest','SportsResolverTest','SportsDataTest','SportsPlaybackTest','SportsFavoritesTest','ExtractorFixtureTest','DependencySmokeTest','UserDataTest','MpvPlayerTest','MainFrameSearchTest','PlaybackFallbackTest','PlaybackRecoveryTest','SubtitleAggregatorTest','PlaybackServerStatsTest','UpdateServiceTest','ImageDiskCacheTest','DiagnosticsTest','MpvBootstrapTest','BrandAssetsTest','VodSearchCoordinatorTest','ProviderHealthStatsTest','ProviderFallbackCoordinatorTest','CatalogRamCacheTest','NavigationStateTest','EmbeddedPlayerIntegrationTest')) {
+foreach ($test in @('JsonTest','ProviderFixtureTest','TmdbFixtureTest','TmdbTitleIndexTest','M3uPlaylistTest','M3uLiveProviderTest','SportsResolverTest','SportsDataTest','SportsPlaybackTest','SportsFavoritesTest','ExtractorFixtureTest','DependencySmokeTest','UserDataTest','MpvPlayerTest','MainFrameSearchTest','PlaybackFallbackTest','PlaybackRecoveryTest','SubtitleAggregatorTest','PlaybackServerStatsTest','UpdateServiceTest','ImageDiskCacheTest','DiagnosticsTest','MpvBootstrapTest','BrandAssetsTest','VodSearchCoordinatorTest','ProviderHealthStatsTest','ProviderFallbackCoordinatorTest','CatalogRamCacheTest','NavigationStateTest','EmbeddedPlayerIntegrationTest','HttpRegressionTest')) {
     Invoke-Checked $java @('-cp','build\streamflix-desktop.jar;build\test-classes',"dev.streamflix.desktop.$test")
 }
 Write-Host 'JAR OK: build\streamflix-desktop.jar (keep sibling build\lib directory)'
+if ($RunGuiE2E) {
+    Write-Host 'Evaluating authentic Windows GUI with populated fixture catalog and multi-viewport capture...'
+    $mpvExe = Join-Path $PSScriptRoot 'tools\mpv\mpv.exe'
+    if ($env:STREAMFLIX_MPV) { $mpvExe = $env:STREAMFLIX_MPV }
+    if (-not (Test-Path -LiteralPath $mpvExe -PathType Leaf)) {
+        & (Join-Path $PSScriptRoot 'setup-mpv.ps1')
+    }
+    if (Test-Path -LiteralPath $mpvExe -PathType Leaf) {
+        $env:STREAMFLIX_MPV = (Resolve-Path $mpvExe).Path
+    }
+    $env:STREAMFLIX_E2E_MEDIA = 'av://lavfi:testsrc2=size=640x360:rate=24'
+    $e2eOut = Join-Path $PSScriptRoot 'build\windows-gui-e2e'
+    Invoke-Checked $java @("-Dstreamflix.e2e.output=$e2eOut",
+        '-cp', 'build\streamflix-desktop.jar;build\test-classes',
+        'dev.streamflix.desktop.WindowsNativeGuiE2E')
+}
 if ($JarOnly) { return }
 $mpvExe = Join-Path $PSScriptRoot 'tools\mpv\mpv.exe'
 if ($env:STREAMFLIX_MPV) { $mpvExe = $env:STREAMFLIX_MPV }
