@@ -6,7 +6,7 @@ import java.awt.geom.RoundRectangle2D;
 
 /** Lightweight animated placeholder used while the streaming home is loading. */
 final class StreamingSkeleton extends JComponent {
-    private final Timer timer;
+    private final javax.swing.Timer timer;
     private float phase;
 
     StreamingSkeleton() {
@@ -14,7 +14,7 @@ final class StreamingSkeleton extends JComponent {
         setMaximumSize(new Dimension(Integer.MAX_VALUE, 650));
         setOpaque(false);
 
-        timer = new Timer(36, e -> {
+        timer = new javax.swing.Timer(36, e -> {
             phase += 0.018f;
             if (phase > 1f) phase -= 1f;
             repaint();

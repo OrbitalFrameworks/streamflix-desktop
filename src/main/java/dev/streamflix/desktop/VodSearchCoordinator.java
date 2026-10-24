@@ -14,12 +14,38 @@ final class VodSearchCoordinator {
     static final long DEFAULT_TIMEOUT_MS = 4500L;
     private static final Pattern YEAR_PATTERN = Pattern.compile("\\b(19\\d\\d|20\\d\\d)\\b");
 
-    private static final ExecutorService EXECUTOR = Executors.newCachedThreadPool(r -> {
-        Thread t = new Thread(r);
-        t.setName("vod-search-" + t.getId());
-        t.setDaemon(true);
-        return t;
-    });
+    // Bounded thread pool preventing unbounded thread leaks during multi-provider search
+    static final int CORE_POOL_SIZE = 16;
+    static final int MAX_POOL_SIZE = 32;
+    static final int QUEUE_CAPACITY = 64;
+    static final long KEEP_ALIVE_SECONDS = 30L;
+
+    private static final ThreadPoolExecutor EXECUTOR = new ThreadPoolExecutor(
+            CORE_POOL_SIZE,
+            MAX_POOL_SIZE,
+            KEEP_ALIVE_SECONDS,
+            TimeUnit.SECONDS,
+            new LinkedBlockingQueue<>(QUEUE_CAPACITY),
+            new ThreadFactory() {
+                private final java.util.concurrent.atomic.AtomicLong counter = new java.util.concurrent.atomic.AtomicLong(1);
+                @Override
+                public Thread newThread(Runnable r) {
+                    Thread t = new Thread(r);
+                    t.setName("vod-search-" + counter.getAndIncrement());
+                    t.setDaemon(true);
+                    return t;
+                }
+            },
+            new ThreadPoolExecutor.AbortPolicy()
+    );
+
+    static {
+        EXECUTOR.allowCoreThreadTimeOut(true);
+    }
+
+    static ThreadPoolExecutor executor() {
+        return EXECUTOR;
+    }
 
     // In-memory registry of candidate sources per canonical item ID or semantic key.
     // Bounded with an LRU eviction policy to prevent unbounded memory growth over long-running sessions.
@@ -41,7 +67,7 @@ final class VodSearchCoordinator {
             String released
     ) {}
 
-    enum ProviderSearchStatus { SUCCESS, TIMEOUT, ERROR, EMPTY, SKIPPED }
+    enum ProviderSearchStatus { SUCCESS, TIMEOUT, ERROR, EMPTY, SKIPPED, REJECTED }
 
     record ProviderResult(
             String providerId,
@@ -66,7 +92,9 @@ final class VodSearchCoordinator {
 
         boolean hasPartialResults() {
             return !items.isEmpty() && providerResults.stream().anyMatch(
-                    r -> r.status() == ProviderSearchStatus.ERROR || r.status() == ProviderSearchStatus.TIMEOUT);
+                    r -> r.status() == ProviderSearchStatus.ERROR
+                            || r.status() == ProviderSearchStatus.TIMEOUT
+                            || r.status() == ProviderSearchStatus.REJECTED);
         }
     }
 
@@ -91,33 +119,83 @@ final class VodSearchCoordinator {
         }
 
         long startedAt = System.currentTimeMillis();
+        long deadlineNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
         List<Provider> targetProviders = filterTargetProviders(allProviders, scope);
-
-        List<CompletableFuture<ProviderSearchResult>> futures = new ArrayList<>();
-        for (Provider provider : targetProviders) {
-            futures.add(CompletableFuture.supplyAsync(() -> queryProvider(provider, query, scope, page), EXECUTOR));
+        if (targetProviders.isEmpty()) {
+            return new SearchResult(List.of(), List.of(), System.currentTimeMillis() - startedAt);
         }
 
-        List<ProviderResult> providerResults = new ArrayList<>();
-        List<Models.ShowItem> rawCollected = new ArrayList<>();
+        int count = targetProviders.size();
+        CountDownLatch latch = new CountDownLatch(count);
+        Map<Integer, ProviderSearchResult> resultsByIndex = new ConcurrentHashMap<>();
+        List<Future<?>> futures = new ArrayList<>(count);
 
-        for (int i = 0; i < targetProviders.size(); i++) {
-            Provider provider = targetProviders.get(i);
-            CompletableFuture<ProviderSearchResult> future = futures.get(i);
+        for (int i = 0; i < count; i++) {
+            final int index = i;
+            final Provider provider = targetProviders.get(i);
             try {
-                ProviderSearchResult result = future.get(timeoutMillis, TimeUnit.MILLISECONDS);
-                providerResults.add(result.summary());
-                rawCollected.addAll(result.items());
-            } catch (TimeoutException ex) {
-                future.cancel(true);
-                AppLog.warn("vod-search", "Timeout esperando respuesta de: " + provider.name());
-                providerResults.add(new ProviderResult(provider.id(), provider.name(),
-                        ProviderSearchStatus.TIMEOUT, 0, "Tiempo de espera agotado"));
-            } catch (Exception ex) {
-                Throwable cause = ex.getCause() != null ? ex.getCause() : ex;
-                AppLog.warn("vod-search", "Error en proveedor " + provider.name() + ": " + cause.getMessage());
-                providerResults.add(new ProviderResult(provider.id(), provider.name(),
-                        ProviderSearchStatus.ERROR, 0, cause.getMessage()));
+                Future<?> f = EXECUTOR.submit(() -> {
+                    Thread.interrupted(); // clear any residual interrupt from prior cancelled executions
+                    try {
+                        ProviderSearchResult res = queryProvider(provider, query, scope, page);
+                        resultsByIndex.putIfAbsent(index, res);
+                    } catch (Throwable t) {
+                        resultsByIndex.putIfAbsent(index, new ProviderSearchResult(
+                                new ProviderResult(provider.id(), provider.name(),
+                                        ProviderSearchStatus.ERROR, 0,
+                                        t.getMessage() != null ? t.getMessage() : t.getClass().getSimpleName()),
+                                List.of()));
+                    } finally {
+                        latch.countDown();
+                    }
+                });
+                futures.add(f);
+            } catch (RejectedExecutionException ex) {
+                AppLog.warn("vod-search", "Saturación de cola: búsqueda rechazada para " + provider.name());
+                resultsByIndex.putIfAbsent(index, new ProviderSearchResult(
+                        new ProviderResult(provider.id(), provider.name(),
+                                ProviderSearchStatus.REJECTED, 0, "Saturación de cola: solicitud rechazada"),
+                        List.of()));
+                futures.add(null);
+                latch.countDown();
+            }
+        }
+
+        long remainingNanos = deadlineNanos - System.nanoTime();
+        if (remainingNanos > 0) {
+            try {
+                latch.await(remainingNanos, TimeUnit.NANOSECONDS);
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                AppLog.warn("vod-search", "Búsqueda interrumpida durante espera");
+            }
+        }
+
+        // Cancel any pending tasks and record timeout/interrupted for any provider that didn't finish
+        for (int i = 0; i < count; i++) {
+            Future<?> f = futures.get(i);
+            if (f != null && !f.isDone()) {
+                f.cancel(true);
+            }
+            if (!resultsByIndex.containsKey(i)) {
+                Provider p = targetProviders.get(i);
+                boolean interrupted = Thread.currentThread().isInterrupted();
+                resultsByIndex.putIfAbsent(i, new ProviderSearchResult(
+                        new ProviderResult(p.id(), p.name(),
+                                interrupted ? ProviderSearchStatus.ERROR : ProviderSearchStatus.TIMEOUT,
+                                0,
+                                interrupted ? "Búsqueda interrumpida" : "Tiempo de espera agotado"),
+                        List.of()));
+            }
+        }
+
+        List<ProviderResult> providerResults = new ArrayList<>(count);
+        List<Models.ShowItem> rawCollected = new ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            ProviderSearchResult res = resultsByIndex.get(i);
+            if (res != null) {
+                providerResults.add(res.summary());
+                rawCollected.addAll(res.items());
             }
         }
 
@@ -152,6 +230,13 @@ final class VodSearchCoordinator {
     private static ProviderSearchResult queryProvider(Provider provider, String query,
                                                       MainFrame.Mode scope, int page) {
         try {
+            if (Thread.currentThread().isInterrupted()) {
+                return new ProviderSearchResult(
+                        new ProviderResult(provider.id(), provider.name(),
+                                ProviderSearchStatus.TIMEOUT, 0, "Búsqueda cancelada por timeout"),
+                        List.of());
+            }
+
             if (provider instanceof TmdbProvider tmdb) {
                 if (!TmdbSettings.hasApiKey()) {
                     return new ProviderSearchResult(
@@ -164,6 +249,12 @@ final class VodSearchCoordinator {
                     case SERIES -> tmdb.searchTv(query, page);
                     default -> tmdb.search(query, page);
                 };
+                if (Thread.currentThread().isInterrupted()) {
+                    return new ProviderSearchResult(
+                            new ProviderResult(provider.id(), provider.name(),
+                                    ProviderSearchStatus.TIMEOUT, 0, "Búsqueda cancelada por timeout"),
+                            List.of());
+                }
                 List<Models.ShowItem> tagged = filterAndTag(tmdbResults, provider.id(), scope);
                 return new ProviderSearchResult(
                         new ProviderResult(provider.id(), provider.name(),
@@ -173,13 +264,36 @@ final class VodSearchCoordinator {
             }
 
             List<Models.ShowItem> results = provider.search(query, page);
+            if (Thread.currentThread().isInterrupted()) {
+                return new ProviderSearchResult(
+                        new ProviderResult(provider.id(), provider.name(),
+                                ProviderSearchStatus.TIMEOUT, 0, "Búsqueda cancelada por timeout"),
+                        List.of());
+            }
             List<Models.ShowItem> tagged = filterAndTag(results, provider.id(), scope);
             return new ProviderSearchResult(
                     new ProviderResult(provider.id(), provider.name(),
                             tagged.isEmpty() ? ProviderSearchStatus.EMPTY : ProviderSearchStatus.SUCCESS,
                             tagged.size(), null),
                     tagged);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            return new ProviderSearchResult(
+                    new ProviderResult(provider.id(), provider.name(),
+                            ProviderSearchStatus.TIMEOUT, 0, "Búsqueda cancelada por timeout"),
+                    List.of());
         } catch (Exception ex) {
+            Throwable root = ex;
+            while (root.getCause() != null && root.getCause() != root) {
+                root = root.getCause();
+                if (root instanceof InterruptedException) {
+                    Thread.currentThread().interrupt();
+                    return new ProviderSearchResult(
+                            new ProviderResult(provider.id(), provider.name(),
+                                    ProviderSearchStatus.TIMEOUT, 0, "Búsqueda cancelada por timeout"),
+                            List.of());
+                }
+            }
             String msg = ex.getMessage() != null ? ex.getMessage() : ex.getClass().getSimpleName();
             return new ProviderSearchResult(
                     new ProviderResult(provider.id(), provider.name(),

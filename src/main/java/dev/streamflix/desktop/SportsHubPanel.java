@@ -32,7 +32,7 @@ final class SportsHubPanel extends JPanel {
     private String activeFilter = "Todos";
     private String query = "";
     private SwingWorker<SportsSnapshot, Void> worker;
-    private final Timer refreshTimer = new Timer(REFRESH_MILLIS, e -> refresh(false));
+    private final javax.swing.Timer refreshTimer = new javax.swing.Timer(REFRESH_MILLIS, e -> refresh(false));
 
     SportsHubPanel(SportsDataProvider dataProvider,
             Consumer<SportsEvent> playEvent,

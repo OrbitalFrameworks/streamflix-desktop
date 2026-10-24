@@ -15,6 +15,23 @@ This directory documents executable visual proof and before/after redesign compa
 | **Settings Dialog** | [`05-settings-dialog.png`](05-settings-dialog.png) | Accessible tabbed navigation (`JTabbedPane`), dark theme controls, in-frame player toggle, hardware acceleration switch, and quality defaults. |
 | **Embedded Player** | [`06-embedded-player.png`](06-embedded-player.png) | In-frame player stage mounted directly under `PLAYER` card inside `MainFrame`, 100% video surface canvas, overlay top/bottom chrome without resizing flash, contextual return (`Esc`), and explicit pop-out mode. |
 
+## Reproducible Xvfb capture
+
+`capture-xvfb.sh` records the executable rather than a mock or source rendering. It requires
+Java 17+, Xvfb and ffmpeg, and intentionally does not consume a TMDb key or alter local
+preferences. Build first, then run:
+
+```bash
+bash build.sh
+bash docs/screenshots/capture-xvfb.sh
+```
+
+The default output is `docs/screenshots/runtime/01-runtime-startup.png`; pass a directory as
+the first argument to retain a separate run. The script captures the honest startup/loading
+state. Catalog, search, detail, settings and player captures require the corresponding
+fixture-driven UI route and must be reviewed independently; they are not inferred from this
+single startup capture.
+
 ---
 
 ## Design System Invariants Addressed

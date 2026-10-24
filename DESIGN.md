@@ -124,6 +124,7 @@ The brand mark supplies personality; control icons stay neutral. Do not generate
 - Navigation and controls always expose a visible keyboard-focus outline in addition to hover and selected state.
 - Catalog-card focus is a persistent 2 px `Theme.FOCUS` outline, independent of pointer hover; button press feedback darkens on pointer-down and clears on release/cancel.
 - Artwork cards use 16:9 framing, title metadata, a distinct focus outline, and a separate red progress indicator.
+- When a locally cached image is unavailable, cards and editorial stages retain hierarchy with a deterministic tonal title treatment built from the provider title. This is an honest fallback, not generated artwork; it must never add fabricated cast, ratings, or imagery.
 - Discovery uses horizontal rails with visible arrows. Continue Watching is a bounded grid/empty state, never a horizontal rail.
 - Loading, empty, recovery error and success feedback use human-readable text. Technical exception strings are not UI copy.
 - Hero copy must fit its available width: hero overlay bounds may shrink but must not be positioned outside the visible canvas.
@@ -134,6 +135,7 @@ The brand mark supplies personality; control icons stay neutral. Do not generate
 - Focus, progress, loading, selected, and error states never rely on color alone.
 - Search remains enabled and focused during background work; Escape returns to its originating section.
 - Small desktop windows preserve critical playback actions and do not clip hero copy behind fixed minimum-width overlays.
+- At compact desktop widths, the primary navigation remains intact while search and settings move to a second toolbar row. Controls are never hidden, reduced to icon-only ambiguity, or removed from keyboard order to make a single row fit.
 
 ## Motion & Transition Invariants
 
@@ -158,3 +160,12 @@ The brand mark supplies personality; control icons stay neutral. Do not generate
 - Contextual Preparation: Empty-cache starts present a compact contextual card ("Preparando tu inicio") while keeping navigation and search fully interactive.
 - Background Refresh: Existing catalog and search items remain interactive while new results load in the background, eliminating layout flicker.
 - Error Recovery: Actionable recovery cards with clear, non-technical explanations and direct retry actions ("Reintentar") replace unhandled exceptions or blank screens.
+
+## Transversal Design Tokens & Component Geometry
+
+- Standard Spacing Scale: `Theme.SPACE_1` (4 px), `Theme.SPACE_2` (8 px), `Theme.SPACE_3` (12 px), and `Theme.SPACE_4` (16 px) govern margins, paddings, and control separations.
+- Corner Radii: `Theme.RADIUS_CONTROL` (12 px) on standard buttons, input fields, state cards, sports cards, and catalog cards; `Theme.RADIUS_COMPACT` (6 px) on checkboxes, progress bars, and compact badges.
+- Antialiased Surfaces: `Theme.RoundedPanel` renders tonal panels (`#131720`) with smooth antialiased borders (`#2A3140`), preventing sharp rectangular clipping artifacts across Home, Settings, Sports Hub, and Guide dialogs.
+- Interactive Feedback: `PillButton` implements tactile pointer-down darkening, hover luminescence, and distinct 2 px `#FFDD68` keyboard focus outlines.
+- Tabbed Navigation: `SettingsDialog` tabs incorporate mnemonic shortcuts, tooltips, accessible descriptions, and scroll-protected viewports for compact screen sizes.
+- Timer Disambiguation: All EDT-driven animations, transitions, debounces, and polling loops use explicit `javax.swing.Timer` instances to guarantee toolchain determinism.

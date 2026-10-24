@@ -45,7 +45,7 @@ final class MainFrame extends JFrame {
     private final JPanel sectionHeaderPanel = new JPanel(new BorderLayout());
     private final JPanel catalogFilters = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
     private final JTextField search = new JTextField(27);
-    private final Timer searchDebounce;
+    private final javax.swing.Timer searchDebounce;
 
     private final JButton homeButton = Theme.topNavButton("Inicio");
     private final JButton moviesButton = Theme.topNavButton("Películas");
@@ -86,7 +86,7 @@ final class MainFrame extends JFrame {
                 event -> playSportsEvent(event, false),
                 event -> playSportsEvent(event, true),
                 () -> switchMode(Mode.LIVE));
-        this.searchDebounce = new Timer(450, e -> runSearch(false));
+        this.searchDebounce = new javax.swing.Timer(450, e -> runSearch(false));
         this.searchDebounce.setRepeats(false);
 
         setIconImages(BrandMark.windowIcons());
@@ -97,7 +97,9 @@ final class MainFrame extends JFrame {
             @Override public void windowClosing(WindowEvent e) { MpvPlayer.shutdown(); }
         });
         addWindowStateListener(e -> EmbeddedPlayerWindow.onApplicationStateChanged(e.getNewState()));
-        setMinimumSize(new Dimension(1180, 720));
+        // Compact Windows desktops retain every primary control instead of clipping
+        // navigation or the search affordance.
+        setMinimumSize(new Dimension(960, 680));
         setSize(1480, 900);
         setLocationRelativeTo(null);
         getContentPane().setBackground(Theme.BG);
@@ -154,7 +156,7 @@ final class MainFrame extends JFrame {
     }
 
     private JComponent buildTopbar() {
-        JPanel top = new JPanel(new BorderLayout(18, 0));
+        ResponsiveTopbar top = new ResponsiveTopbar();
         top.setBackground(new Color(8, 10, 15));
         top.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createMatteBorder(0, 0, 1, 0, Theme.BORDER),
@@ -205,8 +207,6 @@ final class MainFrame extends JFrame {
         for (JButton button : List.of(homeButton, moviesButton, seriesButton, liveButton, sportsButton, favoritesButton)) {
             left.add(button);
         }
-        top.add(left, BorderLayout.WEST);
-
         JPanel tools = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         tools.setOpaque(false);
 
@@ -245,7 +245,7 @@ final class MainFrame extends JFrame {
         settings.addActionListener(e -> openSettings());
         tools.add(settings);
 
-        top.add(tools, BorderLayout.EAST);
+        top.setSections(left, tools);
         return top;
     }
 
@@ -643,7 +643,7 @@ final class MainFrame extends JFrame {
         container.setOpaque(false);
         container.setBorder(new EmptyBorder(60, 34, 60, 34));
 
-        JPanel card = Theme.cardPanel();
+        JPanel card = Theme.surface();
         card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
         card.setPreferredSize(new Dimension(560, 160));
         card.setMaximumSize(new Dimension(560, 160));
@@ -662,9 +662,9 @@ final class MainFrame extends JFrame {
         progress.setBackground(Theme.PANEL_ALT);
 
         card.add(heading);
-        card.add(Box.createVerticalStrut(Theme.SPACE_2 + 2));
+        card.add(Box.createVerticalStrut(10));
         card.add(body);
-        card.add(Box.createVerticalStrut(Theme.SPACE_4 + 2));
+        card.add(Box.createVerticalStrut(18));
         card.add(progress);
 
         container.add(card);
@@ -960,7 +960,7 @@ final class MainFrame extends JFrame {
 
         int min = bar.getMinimum();
         int max = Math.max(min, bar.getMaximum() - bar.getVisibleAmount());
-        Timer activeTimer = (Timer) bar.getClientProperty("streamflix.smoothScrollTimer");
+        javax.swing.Timer activeTimer = (javax.swing.Timer) bar.getClientProperty("streamflix.smoothScrollTimer");
         Object targetProperty = bar.getClientProperty("streamflix.smoothScrollTarget");
         double base = activeTimer != null && activeTimer.isRunning() && targetProperty instanceof Double target
                 ? target
@@ -970,7 +970,7 @@ final class MainFrame extends JFrame {
 
         if (activeTimer != null && activeTimer.isRunning()) return;
 
-        Timer timer = new Timer(16, null);
+        javax.swing.Timer timer = new javax.swing.Timer(16, null);
         timer.setCoalesce(true);
         timer.addActionListener(e -> {
             Object value = bar.getClientProperty("streamflix.smoothScrollTarget");
@@ -980,7 +980,7 @@ final class MainFrame extends JFrame {
 
             if (Math.abs(distance) <= 1.0) {
                 bar.setValue((int) Math.round(desired));
-                ((Timer) e.getSource()).stop();
+                ((javax.swing.Timer) e.getSource()).stop();
                 return;
             }
 
@@ -1187,7 +1187,27 @@ final class MainFrame extends JFrame {
     }
 
     private JComponent stateCard(String title, String message, String actionText, Runnable action) {
-        return Theme.stateCard(title, escapeHtml(message), actionText, action);
+        JPanel card = Theme.surface();
+        card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
+        card.setPreferredSize(new Dimension(560, 180));
+
+        JLabel heading = Theme.heading(title, 20f);
+        heading.setAlignmentX(Component.LEFT_ALIGNMENT);
+        JLabel body = Theme.muted("<html><body style='width:455px'>" + escapeHtml(message) + "</body></html>");
+        body.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        card.add(heading);
+        card.add(Box.createVerticalStrut(9));
+        card.add(body);
+
+        if (actionText != null && action != null) {
+            card.add(Box.createVerticalStrut(18));
+            JButton actionButton = Theme.primaryButton(actionText);
+            actionButton.setAlignmentX(Component.LEFT_ALIGNMENT);
+            actionButton.addActionListener(e -> action.run());
+            card.add(actionButton);
+        }
+        return card;
     }
 
     private void maybeLoadMore() {
@@ -1215,6 +1235,10 @@ final class MainFrame extends JFrame {
     }
 
     private void openSettings() {
+        if (activePlayerView != null) {
+            // Prevent SettingsDialog from overlaying playback and disrupting video presentation
+            return;
+        }
         new SettingsDialog(this).setVisible(true);
         if (tmdbReady()) TmdbTitleIndex.warmUpTv();
 
@@ -1324,7 +1348,7 @@ final class MainFrame extends JFrame {
         openDetails(sportsProvider, sportsProvider.item(), true);
     }
 
-    private void openDetails(Models.ShowItem item) {
+    void openDetails(Models.ShowItem item) {
         openDetails(item, false);
     }
 
@@ -1471,6 +1495,13 @@ final class MainFrame extends JFrame {
     }
 
     EmbeddedPlayerView openEmbeddedPlayer(String title, Runnable onHistoryChanged) {
+        // Guarantee clean video presentation by dismissing any dialogs before starting playback
+        for (Window w : getOwnedWindows()) {
+            if (w instanceof JDialog d && d.isShowing()) {
+                d.dispose();
+            }
+        }
+
         if (activePlayerView != null) {
             activePlayerView.stopPlayback();
             playerHost.removeAll();
@@ -1520,6 +1551,8 @@ final class MainFrame extends JFrame {
         if (detailOpen) {
             sectionHeaderPanel.setVisible(false);
             contentStack.showCard("DETAIL", () -> {
+                detailHost.revalidate();
+                detailHost.repaint();
                 detailHost.requestFocusInWindow();
             });
         } else {
@@ -1529,8 +1562,16 @@ final class MainFrame extends JFrame {
                 case SPORTS -> Mode.SPORTS.name();
                 default -> "CATALOG";
             };
-            contentStack.showCard(destination, this::restoreFocusAfterDetails);
+            contentStack.showCard(destination, () -> {
+                restoreFocusAfterDetails();
+                revalidate();
+                repaint();
+            });
         }
+    }
+
+    boolean isPlayerActive() {
+        return activePlayerView != null;
     }
 
     private void rebuildGridColumns() {
@@ -1799,5 +1840,76 @@ final class MainFrame extends JFrame {
     private static String escapeHtml(String value) {
         if (value == null) return "";
         return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+    }
+
+    /**
+     * Preserves the full keyboard-accessible navigation and search affordance on
+     * compact desktop windows. Wide windows keep the single editorial toolbar;
+     * narrower ones place tools on a second row rather than hiding controls.
+     */
+    private static final class ResponsiveTopbar extends JPanel {
+        private static final int HORIZONTAL_PADDING = 24;
+        private static final int VERTICAL_PADDING = 12;
+        private static final int ROW_GAP = 8;
+        private JPanel navigation;
+        private JPanel tools;
+
+        ResponsiveTopbar() {
+            setLayout(null);
+            addComponentListener(new ComponentAdapter() {
+                @Override public void componentResized(ComponentEvent event) {
+                    // Let the surrounding vertical toolbar recalculate its height when
+                    // a user crosses the compact-layout threshold.
+                    revalidate();
+                }
+            });
+        }
+
+        void setSections(JPanel navigation, JPanel tools) {
+            this.navigation = navigation;
+            this.tools = tools;
+            add(navigation);
+            add(tools);
+        }
+
+        @Override public Dimension getPreferredSize() {
+            if (navigation == null || tools == null) return new Dimension(0, 62);
+            int available = getParent() == null ? 1480 : getParent().getWidth();
+            boolean compact = available > 0 && preferredSingleRowWidth() > available;
+            int height = compact
+                    ? navigation.getPreferredSize().height + tools.getPreferredSize().height + ROW_GAP + VERTICAL_PADDING * 2
+                    : Math.max(navigation.getPreferredSize().height, tools.getPreferredSize().height) + VERTICAL_PADDING * 2;
+            return new Dimension(preferredSingleRowWidth(), height);
+        }
+
+        @Override public Dimension getMaximumSize() {
+            return new Dimension(Integer.MAX_VALUE, getPreferredSize().height);
+        }
+
+        @Override public Dimension getMinimumSize() {
+            return new Dimension(200, getPreferredSize().height);
+        }
+
+        @Override public void doLayout() {
+            if (navigation == null || tools == null) return;
+            int availableWidth = Math.max(0, getWidth() - HORIZONTAL_PADDING * 2);
+            Dimension navigationSize = navigation.getPreferredSize();
+            Dimension toolsSize = tools.getPreferredSize();
+            boolean compact = navigationSize.width + toolsSize.width + 18 > availableWidth;
+            if (compact) {
+                navigation.setBounds(HORIZONTAL_PADDING, VERTICAL_PADDING, availableWidth, navigationSize.height);
+                tools.setBounds(HORIZONTAL_PADDING, VERTICAL_PADDING + navigationSize.height + ROW_GAP,
+                        availableWidth, toolsSize.height);
+            } else {
+                navigation.setBounds(HORIZONTAL_PADDING, VERTICAL_PADDING, navigationSize.width, navigationSize.height);
+                tools.setBounds(HORIZONTAL_PADDING + availableWidth - toolsSize.width, VERTICAL_PADDING,
+                        toolsSize.width, toolsSize.height);
+            }
+        }
+
+        private int preferredSingleRowWidth() {
+            if (navigation == null || tools == null) return 0;
+            return navigation.getPreferredSize().width + tools.getPreferredSize().width + HORIZONTAL_PADDING * 2 + 18;
+        }
     }
 }

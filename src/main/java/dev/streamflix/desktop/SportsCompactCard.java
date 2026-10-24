@@ -3,18 +3,22 @@ package dev.streamflix.desktop;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.function.Consumer;
 
 final class SportsCompactCard extends JPanel {
+    private final SportsEvent event;
+    private boolean hovered;
+
     SportsCompactCard(SportsEvent event, Consumer<SportsEvent> onPlay) {
+        this.event = event;
         setLayout(new BorderLayout(10, 8));
-        setBackground(Theme.PANEL);
-        setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(Theme.BORDER),
-                new EmptyBorder(14, 14, 14, 14)));
+        setOpaque(false);
+        setBorder(new EmptyBorder(14, 14, 14, 14));
         setPreferredSize(new Dimension(300, 146));
         setMaximumSize(new Dimension(300, 146));
 
@@ -42,6 +46,33 @@ final class SportsCompactCard extends JPanel {
                 : "Todavía no hay broadcaster asociado a este evento");
         play.addActionListener(e -> onPlay.accept(event));
         add(play, BorderLayout.SOUTH);
+
+        MouseAdapter ma = new MouseAdapter() {
+            @Override public void mouseEntered(MouseEvent e) { hovered = true; repaint(); }
+            @Override public void mouseExited(MouseEvent e) { hovered = false; repaint(); }
+        };
+        addMouseListener(ma);
+        text.addMouseListener(ma);
+    }
+
+    SportsEvent event() {
+        return event;
+    }
+
+    @Override protected void paintComponent(Graphics g) {
+        Graphics2D g2 = (Graphics2D) g.create();
+        try {
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            int w = getWidth();
+            int h = getHeight();
+            g2.setColor(hovered ? Theme.HOVER : Theme.PANEL);
+            g2.fillRoundRect(0, 0, w, h, Theme.RADIUS_CONTROL, Theme.RADIUS_CONTROL);
+            g2.setColor(hovered ? new Color(255, 255, 255, 45) : Theme.BORDER);
+            g2.drawRoundRect(0, 0, w - 1, h - 1, Theme.RADIUS_CONTROL, Theme.RADIUS_CONTROL);
+        } finally {
+            g2.dispose();
+        }
+        super.paintComponent(g);
     }
 
     private static String status(SportsEvent event) {

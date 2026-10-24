@@ -19,7 +19,38 @@ public final class NavigationStateTest {
         testRealizedComponentInterruptionCancellation();
         testDetailNavigationStack();
         testCardTargetMatching();
+        testPlayerTransitionSuppression();
         System.out.println("NavigationStateTest OK");
+    }
+
+    private static void testPlayerTransitionSuppression() {
+        SmoothContentHost host = new SmoothContentHost();
+        host.setSize(800, 600);
+
+        JPanel detailCard = new JPanel();
+        JPanel playerCard = new JPanel();
+        host.addCard(detailCard, "DETAIL");
+        host.addCard(playerCard, "PLAYER");
+
+        // Initial landing on DETAIL without animation
+        host.showCard("DETAIL");
+        drainEdt();
+        check(!host.isTransitioning(), "DETAIL initial card should not be transitioning");
+
+        // Now enable forceAnimationForTesting to verify suppression logic even when testing animations
+        host.setForceAnimationForTesting(true);
+
+        // Transition from DETAIL to PLAYER must NEVER animate (immediate switch to prevent dark frame glitch)
+        host.showCard("PLAYER");
+        drainEdt();
+        check(!host.isTransitioning(), "PLAYER transition must suppress crossfade animation");
+        check("PLAYER".equals(host.currentCard()), "Card should immediately be PLAYER");
+
+        // Transition from PLAYER to DETAIL must ALSO NEVER animate (prevent residual black rectangle overlay)
+        host.showCard("DETAIL");
+        drainEdt();
+        check(!host.isTransitioning(), "Restoration from PLAYER must suppress crossfade animation");
+        check("DETAIL".equals(host.currentCard()), "Card should immediately be DETAIL");
     }
 
     private static void testCardTargetMatching() {
