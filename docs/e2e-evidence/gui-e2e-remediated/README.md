@@ -1,5 +1,7 @@
 # GUI E2E Remediation & Traceable Visual Artifacts
 
+> **Capturas históricas (Linux/Xvfb).** No sirven como prueba nativa Windows ni de reproducción mpv real. La evidencia del runner Windows que sí se verificó está documentada en [VERIFIED_WINDOWS_GUI_2026-10-24.md](../../VERIFIED_WINDOWS_GUI_2026-10-24.md).
+
 ## Summary of Remediations
 1. **Title Text Duplication / Overlap Elimination**:
    - `HeroPanel.java`: Removed duplicate fallback text from backdrop `ArtworkPanel`, ensuring the cinematic 40pt heading in `copy` renders cleanly without blurry overlapping text behind it.
