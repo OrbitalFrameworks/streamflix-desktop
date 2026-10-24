@@ -63,11 +63,9 @@ public final class WindowsNativeGuiE2E {
 
     private static void clickButton(Container root, String label) throws Exception {
         AtomicReference<Point> center = new AtomicReference<>();
-        AtomicReference<JButton> buttonRef = new AtomicReference<>();
         edt(() -> {
             JButton btn = findButton(root, label);
             if (btn == null) throw new AssertionError("Button not found: " + label);
-            buttonRef.set(btn);
             Point p = btn.getLocationOnScreen();
             center.set(new Point(p.x + btn.getWidth() / 2, p.y + btn.getHeight() / 2));
         });
@@ -78,10 +76,6 @@ public final class WindowsNativeGuiE2E {
             robot.mouseRelease(InputEvent.BUTTON1_DOWN_MASK);
             robot.waitForIdle();
         }
-        SwingUtilities.invokeLater(() -> {
-            JButton btn = buttonRef.get();
-            if (btn != null) btn.doClick();
-        });
         log("CLICK: " + label);
     }
 
