@@ -51,10 +51,10 @@ layout validation (1480x900 cinematic, 1280x800 standard, 1024x768 compact), vis
 and clean player restoration.
 
 Recent visual/UX candidate recovery (post-f798b10):
-- Home & Editorial Hero: HeroPanel incorporates direct "+ Mi lista" toggle action, standardized micro-badges (release year, star rating with #E8D360 gold star, media type, Full HD), and deep charcoal multi-stop vignette gradients for optimal text legibility.
+- Home & Editorial Hero: HeroPanel incorporates direct "Mi lista" toggle action, standardized micro-badges (release year, star rating with #E8D360 gold star, media type), and deep charcoal multi-stop vignette gradients for improved text legibility. Resolution/quality is never asserted without verified stream metadata.
 - Catalog & Discovery Rails: LandscapeCard integrates tonal micro-badges, refined 16:9 aspect ratio, and persistent 2px keyboard focus outlines; Continue Watching features an honest contextual empty state with direct exploration CTA.
 - Search Experience: Dynamic search scope chips (All, Movies, Series, Live TV) in catalogFilters allowing instant scope switching without retyping, plus contextual guidance and recovery states.
-- Mi Lista (Favorites): Dedicated category filter chips (Todos, Películas, Series, TV) with real-time reactive counts, and an actionable empty state guiding users to explore popular movies.
+- Mi Lista (Favorites): Dedicated category filter chips (Todos, Películas, Series) with real-time reactive counts, and an actionable empty state guiding users to explore popular movies. Live TV remains a separate catalog model and is not represented as a saved ShowItem.
 - Detail View: Season selector displays episode counts ("Temporada 1 (10)"), rich metadata pills, and polished episode row keyboard navigation.
 
 ## Release engineering

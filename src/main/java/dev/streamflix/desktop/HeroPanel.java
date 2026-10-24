@@ -85,7 +85,6 @@ final class HeroPanel extends JLayeredPane {
             metadata.add(Theme.starRatingBadge(item.rating()));
         }
         metadata.add(Theme.badge(item.type() == Models.ShowType.MOVIE ? "Película" : "Serie"));
-        metadata.add(Theme.badge("Full HD"));
 
         String synopsis = item.overview() == null || item.overview().isBlank()
                 ? "Descubre este título en Streamflix."

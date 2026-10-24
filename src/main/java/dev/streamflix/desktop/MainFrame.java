@@ -1143,7 +1143,6 @@ final class MainFrame extends JFrame {
             displayItems = switch (favoritesCategory) {
                 case "MOVIES" -> items.stream().filter(it -> it.type() == Models.ShowType.MOVIE).toList();
                 case "SERIES" -> items.stream().filter(it -> it.type() == Models.ShowType.TV_SHOW).toList();
-                case "LIVE" -> items.stream().filter(it -> it.type() != Models.ShowType.MOVIE && it.type() != Models.ShowType.TV_SHOW).toList();
                 default -> items;
             };
         }
@@ -1153,7 +1152,7 @@ final class MainFrame extends JFrame {
                 if (items.isEmpty()) {
                     renderGridState(
                             "Tu lista personal está vacía",
-                            "Guarda títulos desde su ficha usando el botón “+ Mi lista” para encontrarlos rápidamente aquí.",
+                        "Guarda títulos desde su ficha usando el botón “Mi lista” para encontrarlos rápidamente aquí.",
                             "Explorar películas",
                             () -> switchMode(Mode.MOVIES));
                 } else {
@@ -1172,11 +1171,11 @@ final class MainFrame extends JFrame {
             if (mode == Mode.SEARCH) {
                 renderGridState(
                         "Sin coincidencias para “" + query + "”",
-                        "No encontramos resultados en " + (searchScope != null ? searchScope.name().toLowerCase() : "el catálogo") +
+                        "No encontramos resultados en " + (searchScope == Mode.HOME ? "el catálogo" : searchScope.name().toLowerCase()) +
                                 ". Prueba buscando por título original, año o revisa posibles errores tipográficos.",
                         "Buscar en todo el catálogo",
                         () -> {
-                            searchScope = null;
+                            searchScope = Mode.HOME;
                             updateHeader();
                             runSearch(false);
                         });
@@ -1681,14 +1680,12 @@ final class MainFrame extends JFrame {
             List<Models.ShowItem> allFavs = UserData.getFavorites();
             long movieCount = allFavs.stream().filter(it -> it.type() == Models.ShowType.MOVIE).count();
             long seriesCount = allFavs.stream().filter(it -> it.type() == Models.ShowType.TV_SHOW).count();
-            long liveCount = allFavs.size() - movieCount - seriesCount;
 
             record FavFilter(String label, String category) {}
             List<FavFilter> favFilters = List.of(
                     new FavFilter("Todos (" + allFavs.size() + ")", "ALL"),
                     new FavFilter("Películas (" + movieCount + ")", "MOVIES"),
-                    new FavFilter("Series (" + seriesCount + ")", "SERIES"),
-                    new FavFilter("TV (" + liveCount + ")", "LIVE")
+                    new FavFilter("Series (" + seriesCount + ")", "SERIES")
             );
             for (FavFilter ff : favFilters) {
                 JButton button = Theme.filterChip(ff.label(), favoritesCategory.equals(ff.category()), () -> {
@@ -1707,14 +1704,13 @@ final class MainFrame extends JFrame {
         if (mode == Mode.SEARCH) {
             record ScopeChip(String label, Mode scope) {}
             List<ScopeChip> chips = List.of(
-                    new ScopeChip("Películas y series", null),
+                    new ScopeChip("Películas y series", Mode.HOME),
                     new ScopeChip("Películas", Mode.MOVIES),
                     new ScopeChip("Series", Mode.SERIES),
                     new ScopeChip("TV en directo", Mode.LIVE)
             );
             for (ScopeChip chip : chips) {
-                boolean active = (chip.scope() == null && searchScope == null)
-                        || (chip.scope() != null && chip.scope() == searchScope);
+                boolean active = chip.scope() == searchScope;
                 JButton button = Theme.filterChip(chip.label(), active, () -> {
                     searchScope = chip.scope();
                     updateHeader();
@@ -1783,7 +1779,7 @@ final class MainFrame extends JFrame {
 
         String subtitle = switch (mode) {
             case HOME -> "Películas, series y canales en un solo lugar";
-            case FAVORITES -> "Títulos y canales guardados en tu biblioteca personal";
+            case FAVORITES -> "Películas y series guardadas en tu biblioteca personal";
             case LIVE -> "Canales en directo";
             case SPORTS -> "Partidos, carreras y eventos deportivos en vivo y próximos";
             case SEARCH -> switch (searchScope) {

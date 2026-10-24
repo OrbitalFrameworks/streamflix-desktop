@@ -328,7 +328,6 @@ final class TitleDetailView extends JPanel {
             meta.add(Theme.badge(item.runtimeMinutes() + " min"));
         }
         meta.add(Theme.badge(item.type() == Models.ShowType.MOVIE ? "Película" : "Serie"));
-        meta.add(Theme.badge("Full HD"));
 
         String overviewText = item.overview() == null || item.overview().isBlank()
                 ? "Sin descripción disponible."
