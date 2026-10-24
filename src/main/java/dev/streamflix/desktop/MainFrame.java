@@ -324,7 +324,7 @@ final class MainFrame extends JFrame {
         homeRoot.setLayout(new BoxLayout(homeRoot, BoxLayout.Y_AXIS));
         homeRoot.setBorder(new EmptyBorder(0, 0, 36, 0));
 
-        JPanel homeViewport = new JPanel(new BorderLayout());
+        JPanel homeViewport = new WidthTrackingPanel(new BorderLayout());
         homeViewport.setBackground(Theme.BG);
         homeViewport.add(homeRoot, BorderLayout.NORTH);
 

@@ -61,6 +61,38 @@ public final class WindowsNativeGuiE2E {
         return null;
     }
 
+    private static HeroPanel findHero(Component root) {
+        if (root instanceof HeroPanel hero) return hero;
+        if (root instanceof Container container) {
+            for (Component child : container.getComponents()) {
+                HeroPanel found = findHero(child);
+                if (found != null) return found;
+            }
+        }
+        return null;
+    }
+
+    /** Detects offscreen Home content even when the native window itself is not clipped. */
+    private static void verifyHomeContentFits(MainFrame frame) {
+        try {
+            var field = MainFrame.class.getDeclaredField("homeScroll");
+            field.setAccessible(true);
+            JScrollPane scroll = (JScrollPane) field.get(frame);
+            JViewport viewport = scroll.getViewport();
+            Component view = viewport.getView();
+            HeroPanel hero = findHero(view);
+            verify(view != null && view.getWidth() <= viewport.getExtentSize().width + 1,
+                    "Home content tracks viewport width, not oversized preferred child widths");
+            verify(hero != null && hero.getWidth() > 0,
+                    "Populated Home hero is laid out inside its scroll view");
+            Rectangle heroBounds = SwingUtilities.convertRectangle(hero.getParent(), hero.getBounds(), viewport);
+            verify(heroBounds.x >= -1 && heroBounds.x + heroBounds.width <= viewport.getWidth() + 1,
+                    "Home hero must not extend beyond the visible viewport: " + heroBounds);
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("Cannot inspect Home layout width", e);
+        }
+    }
+
     private static void clickButton(Container root, String label) throws Exception {
         AtomicReference<Point> center = new AtomicReference<>();
         edt(() -> {
@@ -131,7 +163,8 @@ public final class WindowsNativeGuiE2E {
         entry.put("sizeBytes", bytes.length);
         entry.put("sha256", hex.toString());
         entry.put("colorsSampled", sampledColors.size());
-        entry.put("antiSlopCompliant", true);
+        // A screenshot hash and nonempty pixels prove provenance, NOT visual quality.
+        entry.put("visualReview", "REQUIRED");
         entry.put("timestamp", java.time.Instant.now().toString());
         screenshotManifest.add(entry);
 
@@ -322,6 +355,7 @@ public final class WindowsNativeGuiE2E {
             edt(() -> {
                 verify(frame.getWidth() == 1480 && frame.getHeight() == 900, "Frame size 1480x900 set");
                 verify(frame.isShowing(), "Frame visible on desktop display");
+                verifyHomeContentFits(frame);
                 for (String section : List.of("Inicio", "Películas", "Series", "TV", "Deportes", "Mi lista")) {
                     JButton btn = findButton(frame, section);
                     verify(btn != null && btn.isShowing(), "Navigation button visible at 1480x900: " + section);
@@ -341,6 +375,7 @@ public final class WindowsNativeGuiE2E {
 
             edt(() -> {
                 verify(frame.getWidth() == 1280 && frame.getHeight() == 800, "Frame standard size 1280x800 applied");
+                verifyHomeContentFits(frame);
                 for (String section : List.of("Inicio", "Películas", "Series", "TV", "Deportes", "Mi lista")) {
                     JButton btn = findButton(frame, section);
                     verify(btn != null && btn.isShowing(), "Navigation button visible at 1280x800: " + section);
@@ -360,6 +395,7 @@ public final class WindowsNativeGuiE2E {
 
             edt(() -> {
                 verify(frame.getWidth() == 1024 && frame.getHeight() == 768, "Frame compact size 1024x768 applied");
+                verifyHomeContentFits(frame);
                 for (String section : List.of("Inicio", "Películas", "Series", "TV", "Deportes", "Mi lista")) {
                     JButton btn = findButton(frame, section);
                     verify(btn != null && btn.isShowing(), "Navigation button visible at compact 1024x768: " + section);
