@@ -8,6 +8,7 @@ import java.awt.event.MouseEvent;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public final class NavigationStateTest {
     public static void main(String[] args) {
@@ -20,7 +21,11 @@ public final class NavigationStateTest {
         testDetailNavigationStack();
         testCardTargetMatching();
         testHeroCopyWordWrap();
+        testDetailSynopsisCompactWrap();
         testPlayerTransitionSuppression();
+        testEpisodeRowAccessibilityAndFocus();
+        testSportsCompactCardAccessibilityAndFocus();
+        testStreamingSkeletonReducedMotion();
         System.out.println("NavigationStateTest OK");
     }
 
@@ -75,6 +80,25 @@ public final class NavigationStateTest {
                 "A short synopsis must preserve all meaningful text when wrapping");
         String clipped = HeroPanel.wrappedHtml(synopsis + " ".repeat(2) + synopsis, metrics, 150, 2);
         check(clipped.contains("…"), "Long synopsis truncation must be indicated visibly");
+    }
+
+    private static void testDetailSynopsisCompactWrap() {
+        JLabel label = new JLabel();
+        FontMetrics metrics = label.getFontMetrics(new Font("Dialog", Font.PLAIN, 14));
+        String description = "Dom Cobb es un ladrón experto en el peligroso arte de la extracción de secretos corporativos.";
+        for (int viewport : new int[] {1024, 1280, 1480}) {
+            int inset = Math.min(40, Math.max(18, viewport / 18));
+            int copyWidth = (int) (viewport * 0.50) - inset - 8;
+            check(inset + copyWidth < viewport * 0.54,
+                    "Detail synopsis must stay inside its left editorial zone at " + viewport);
+            String html = HeroPanel.wrappedHtml(description, metrics, copyWidth - 22, 4);
+            if (metrics.stringWidth(description) > copyWidth - 22) {
+                check(html.contains("<br>"),
+                        "Detail synopsis must break across lines when copy exceeds the safe zone at " + viewport);
+            }
+            check(html.contains("corporativos."),
+                    "The full short synopsis should remain visible at " + viewport);
+        }
     }
 
     private static void testTransitionConstants() {
@@ -378,6 +402,61 @@ public final class NavigationStateTest {
     private static void check(boolean condition, String message) {
         if (!condition) {
             throw new AssertionError("Check failed: " + message);
+        }
+    }
+
+    private static void testEpisodeRowAccessibilityAndFocus() {
+        Models.Episode ep = new Models.Episode("ep-1", 1, 1, "Piloto", "Sinopsis del episodio", "http://poster");
+        AtomicInteger played = new AtomicInteger();
+        EpisodeRow row = new EpisodeRow(ep, it -> played.incrementAndGet(), (it, c) -> {});
+        check(row.isFocusable(), "EpisodeRow must be focusable for keyboard navigation");
+        check(row.getAccessibleContext() != null, "EpisodeRow must have accessible context");
+        check(row.getAccessibleContext().getAccessibleName().contains("Piloto"), "Accessible name must contain episode title");
+        check("ep-1".equals(row.episode().id()), "EpisodeRow exposes episode");
+
+        activateFocusedKey(row, KeyEvent.VK_ENTER);
+        check(played.get() == 1, "Enter activates episode playback exactly once");
+        activateFocusedKey(row, KeyEvent.VK_SPACE);
+        check(played.get() == 2, "Space activates episode playback exactly once");
+    }
+
+    private static void testSportsCompactCardAccessibilityAndFocus() {
+        SportsEvent ev = new SportsEvent("ev-1", "Fútbol", "Liga", "Equipo A vs B", "Equipo A", "Equipo B",
+                "http://h", "http://a", 1, 0, "En vivo", "45'",
+                java.time.Instant.now(), java.util.List.of(new SportsBroadcaster("ch1", "ES", "http://s")));
+        AtomicInteger played = new AtomicInteger();
+        SportsCompactCard card = new SportsCompactCard(ev, it -> played.incrementAndGet());
+        check(card.isFocusable(), "SportsCompactCard must be focusable");
+        check(card.getAccessibleContext() != null, "SportsCompactCard must have accessible context");
+        check(card.getAccessibleContext().getAccessibleName().contains("Equipo A"), "Accessible name must contain team");
+
+        activateFocusedKey(card, KeyEvent.VK_ENTER);
+        check(played.get() == 1, "Enter activates sports playback exactly once");
+        activateFocusedKey(card, KeyEvent.VK_SPACE);
+        check(played.get() == 2, "Space activates sports playback exactly once");
+    }
+
+    private static void activateFocusedKey(JComponent component, int keyCode) {
+        KeyStroke stroke = KeyStroke.getKeyStroke(keyCode, 0);
+        Object actionKey = component.getInputMap(JComponent.WHEN_FOCUSED).get(stroke);
+        check(actionKey != null, "Focused key action is registered: " + keyCode);
+        Action action = component.getActionMap().get(actionKey);
+        check(action != null, "Focused action resolves: " + keyCode);
+        action.actionPerformed(new java.awt.event.ActionEvent(component,
+                java.awt.event.ActionEvent.ACTION_PERFORMED, "test-activation"));
+    }
+
+    private static void testStreamingSkeletonReducedMotion() {
+        String original = System.getProperty("streamflix.reducedMotion");
+        try {
+            System.setProperty("streamflix.reducedMotion", "true");
+            StreamingSkeleton skeleton = new StreamingSkeleton();
+            skeleton.addNotify();
+            drainEdt();
+            skeleton.removeNotify();
+        } finally {
+            if (original != null) System.setProperty("streamflix.reducedMotion", original);
+            else System.clearProperty("streamflix.reducedMotion");
         }
     }
 

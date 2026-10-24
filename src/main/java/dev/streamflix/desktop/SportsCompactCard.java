@@ -3,8 +3,7 @@ package dev.streamflix.desktop;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
+import java.awt.event.*;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
@@ -13,6 +12,7 @@ import java.util.function.Consumer;
 final class SportsCompactCard extends JPanel {
     private final SportsEvent event;
     private boolean hovered;
+    private boolean focused;
 
     SportsCompactCard(SportsEvent event, Consumer<SportsEvent> onPlay) {
         this.event = event;
@@ -21,6 +21,8 @@ final class SportsCompactCard extends JPanel {
         setBorder(new EmptyBorder(14, 14, 14, 14));
         setPreferredSize(new Dimension(300, 146));
         setMaximumSize(new Dimension(300, 146));
+        setFocusable(true);
+        setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 
         JPanel text = new JPanel();
         text.setOpaque(false);
@@ -48,11 +50,35 @@ final class SportsCompactCard extends JPanel {
         add(play, BorderLayout.SOUTH);
 
         MouseAdapter ma = new MouseAdapter() {
+            @Override public void mouseClicked(MouseEvent e) {
+                if (SwingUtilities.isLeftMouseButton(e) && !event.broadcasters().isEmpty()) {
+                    onPlay.accept(event);
+                }
+            }
             @Override public void mouseEntered(MouseEvent e) { hovered = true; repaint(); }
             @Override public void mouseExited(MouseEvent e) { hovered = false; repaint(); }
         };
         addMouseListener(ma);
         text.addMouseListener(ma);
+
+        addFocusListener(new FocusAdapter() {
+            @Override public void focusGained(FocusEvent e) { focused = true; repaint(); }
+            @Override public void focusLost(FocusEvent e) { focused = false; repaint(); }
+        });
+
+        // Use a single focused action binding, not a KeyListener plus binding:
+        // duplicate callbacks could attempt to open the same stream twice.
+        registerKeyboardAction(e -> {
+            if (!event.broadcasters().isEmpty()) onPlay.accept(event);
+        }, KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), JComponent.WHEN_FOCUSED);
+        registerKeyboardAction(e -> {
+            if (!event.broadcasters().isEmpty()) onPlay.accept(event);
+        }, KeyStroke.getKeyStroke(KeyEvent.VK_SPACE, 0), JComponent.WHEN_FOCUSED);
+
+        String accessible = (event.hasTeams() ? event.homeTeam() + " vs " + event.awayTeam() : event.name())
+                + " · " + event.sport() + " · " + status(event);
+        getAccessibleContext().setAccessibleName(accessible);
+        setToolTipText(accessible);
     }
 
     SportsEvent event() {
@@ -69,6 +95,13 @@ final class SportsCompactCard extends JPanel {
             g2.fillRoundRect(0, 0, w, h, Theme.RADIUS_CONTROL, Theme.RADIUS_CONTROL);
             g2.setColor(hovered ? new Color(255, 255, 255, 45) : Theme.BORDER);
             g2.drawRoundRect(0, 0, w - 1, h - 1, Theme.RADIUS_CONTROL, Theme.RADIUS_CONTROL);
+
+            if (focused) {
+                g2.setColor(Theme.FOCUS);
+                g2.setStroke(new BasicStroke(2f));
+                g2.drawRoundRect(1, 1, Math.max(0, w - 3), Math.max(0, h - 3),
+                        Theme.RADIUS_CONTROL - 2, Theme.RADIUS_CONTROL - 2);
+            }
         } finally {
             g2.dispose();
         }

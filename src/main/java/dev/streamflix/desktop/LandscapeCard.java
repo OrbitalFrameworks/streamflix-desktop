@@ -30,6 +30,9 @@ final class LandscapeCard extends JLayeredPane {
         setMaximumSize(new Dimension(380, 214));
         setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         setFocusable(true);
+        String desc = item.title() + " (" + (item.type() == Models.ShowType.MOVIE ? "Película" : "Serie") + ")"
+                + (item.rating() != null && item.rating() > 0 ? String.format(" · ★ %.1f", item.rating()) : "");
+        getAccessibleContext().setAccessibleName(desc);
 
         hoverTimer = new javax.swing.Timer(16, e -> {
             float delta = hoverTarget - hoverAmount;
@@ -121,7 +124,7 @@ final class LandscapeCard extends JLayeredPane {
         }
 
         if (item.rating() != null && item.rating() > 0) {
-            JLabel rating = new JLabel(String.format("%.1f", item.rating()));
+            JLabel rating = new JLabel(String.format("★ %.1f", item.rating()));
             rating.setForeground(new Color(232, 211, 96));
             rating.setFont(Theme.FONT_BOLD.deriveFont(11f));
             meta.add(rating);
