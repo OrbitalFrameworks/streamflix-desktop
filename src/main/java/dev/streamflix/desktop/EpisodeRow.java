@@ -134,13 +134,8 @@ final class EpisodeRow extends JPanel {
             }
         });
 
-        addKeyListener(new KeyAdapter() {
-            @Override public void keyPressed(KeyEvent e) {
-                if (e.getKeyCode() == KeyEvent.VK_ENTER || e.getKeyCode() == KeyEvent.VK_SPACE) {
-                    onPlay.accept(episode);
-                }
-            }
-        });
+        // A focused Swing component must dispatch each key once. A KeyListener
+        // alongside registerKeyboardAction would invoke playback twice.
         registerKeyboardAction(e -> onPlay.accept(episode),
                 KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), JComponent.WHEN_FOCUSED);
         registerKeyboardAction(e -> onPlay.accept(episode),

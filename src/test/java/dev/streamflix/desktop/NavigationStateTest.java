@@ -8,6 +8,7 @@ import java.awt.event.MouseEvent;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public final class NavigationStateTest {
     public static void main(String[] args) {
@@ -386,35 +387,43 @@ public final class NavigationStateTest {
 
     private static void testEpisodeRowAccessibilityAndFocus() {
         Models.Episode ep = new Models.Episode("ep-1", 1, 1, "Piloto", "Sinopsis del episodio", "http://poster");
-        AtomicBoolean played = new AtomicBoolean(false);
-        EpisodeRow row = new EpisodeRow(ep, it -> played.set(true), (it, c) -> {});
+        AtomicInteger played = new AtomicInteger();
+        EpisodeRow row = new EpisodeRow(ep, it -> played.incrementAndGet(), (it, c) -> {});
         check(row.isFocusable(), "EpisodeRow must be focusable for keyboard navigation");
         check(row.getAccessibleContext() != null, "EpisodeRow must have accessible context");
         check(row.getAccessibleContext().getAccessibleName().contains("Piloto"), "Accessible name must contain episode title");
         check("ep-1".equals(row.episode().id()), "EpisodeRow exposes episode");
 
-        // Test Enter key activates play via KeyListener
-        for (java.awt.event.KeyListener kl : row.getKeyListeners()) {
-            kl.keyPressed(new KeyEvent(row, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_ENTER, KeyEvent.CHAR_UNDEFINED));
-        }
-        check(played.get(), "Enter key must trigger episode playback");
+        activateFocusedKey(row, KeyEvent.VK_ENTER);
+        check(played.get() == 1, "Enter activates episode playback exactly once");
+        activateFocusedKey(row, KeyEvent.VK_SPACE);
+        check(played.get() == 2, "Space activates episode playback exactly once");
     }
 
     private static void testSportsCompactCardAccessibilityAndFocus() {
         SportsEvent ev = new SportsEvent("ev-1", "Fútbol", "Liga", "Equipo A vs B", "Equipo A", "Equipo B",
                 "http://h", "http://a", 1, 0, "En vivo", "45'",
                 java.time.Instant.now(), java.util.List.of(new SportsBroadcaster("ch1", "ES", "http://s")));
-        AtomicBoolean played = new AtomicBoolean(false);
-        SportsCompactCard card = new SportsCompactCard(ev, it -> played.set(true));
+        AtomicInteger played = new AtomicInteger();
+        SportsCompactCard card = new SportsCompactCard(ev, it -> played.incrementAndGet());
         check(card.isFocusable(), "SportsCompactCard must be focusable");
         check(card.getAccessibleContext() != null, "SportsCompactCard must have accessible context");
         check(card.getAccessibleContext().getAccessibleName().contains("Equipo A"), "Accessible name must contain team");
 
-        // Test Enter key activates play via KeyListener
-        for (java.awt.event.KeyListener kl : card.getKeyListeners()) {
-            kl.keyPressed(new KeyEvent(card, KeyEvent.KEY_PRESSED, System.currentTimeMillis(), 0, KeyEvent.VK_ENTER, KeyEvent.CHAR_UNDEFINED));
-        }
-        check(played.get(), "Enter key must trigger sports event playback");
+        activateFocusedKey(card, KeyEvent.VK_ENTER);
+        check(played.get() == 1, "Enter activates sports playback exactly once");
+        activateFocusedKey(card, KeyEvent.VK_SPACE);
+        check(played.get() == 2, "Space activates sports playback exactly once");
+    }
+
+    private static void activateFocusedKey(JComponent component, int keyCode) {
+        KeyStroke stroke = KeyStroke.getKeyStroke(keyCode, 0);
+        Object actionKey = component.getInputMap(JComponent.WHEN_FOCUSED).get(stroke);
+        check(actionKey != null, "Focused key action is registered: " + keyCode);
+        Action action = component.getActionMap().get(actionKey);
+        check(action != null, "Focused action resolves: " + keyCode);
+        action.actionPerformed(new java.awt.event.ActionEvent(component,
+                java.awt.event.ActionEvent.ACTION_PERFORMED, "test-activation"));
     }
 
     private static void testStreamingSkeletonReducedMotion() {

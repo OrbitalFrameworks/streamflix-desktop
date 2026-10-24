@@ -66,14 +66,8 @@ final class SportsCompactCard extends JPanel {
             @Override public void focusLost(FocusEvent e) { focused = false; repaint(); }
         });
 
-        addKeyListener(new KeyAdapter() {
-            @Override public void keyPressed(KeyEvent e) {
-                if ((e.getKeyCode() == KeyEvent.VK_ENTER || e.getKeyCode() == KeyEvent.VK_SPACE)
-                        && !event.broadcasters().isEmpty()) {
-                    onPlay.accept(event);
-                }
-            }
-        });
+        // Use a single focused action binding, not a KeyListener plus binding:
+        // duplicate callbacks could attempt to open the same stream twice.
         registerKeyboardAction(e -> {
             if (!event.broadcasters().isEmpty()) onPlay.accept(event);
         }, KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), JComponent.WHEN_FOCUSED);
