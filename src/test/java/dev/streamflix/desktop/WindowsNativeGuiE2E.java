@@ -20,7 +20,10 @@ import java.util.concurrent.atomic.AtomicReference;
  * responsive multi-viewport testing, and traceable screen capture.
  */
 public final class WindowsNativeGuiE2E {
-    private static final Path OUT = Path.of(System.getProperty("streamflix.e2e.output", "build/windows-gui-e2e"));
+    private static final Path OUT = Path.of(System.getProperty("streamflix.e2e.output",
+            (Files.exists(Path.of("build")) && !Files.isWritable(Path.of("build")))
+                    ? "/tmp/streamflix-build/gui-e2e"
+                    : "build/windows-gui-e2e"));
     private static final Path SCREENSHOTS_DIR = OUT.resolve("screenshots");
     private static final List<String> logEntries = new ArrayList<>();
     private static final List<Map<String, Object>> screenshotManifest = new ArrayList<>();

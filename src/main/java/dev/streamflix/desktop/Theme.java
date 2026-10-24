@@ -186,6 +186,75 @@ final class Theme {
         return l;
     }
 
+    static JComponent badge(String text) {
+        JLabel label = new JLabel(text == null ? "" : text);
+        label.setForeground(MUTED);
+        label.setFont(FONT_BOLD.deriveFont(11f));
+        RoundedPanel panel = new RoundedPanel(PANEL_ALT, BORDER, RADIUS_COMPACT, new Insets(2, 7, 2, 7));
+        panel.setLayout(new FlowLayout(FlowLayout.CENTER, 0, 0));
+        panel.add(label);
+        return panel;
+    }
+
+    static JComponent starRatingBadge(Double rating) {
+        String text = (rating != null && rating > 0) ? String.format(java.util.Locale.US, "★ %.1f", rating) : "★ --";
+        JLabel label = new JLabel(text);
+        label.setForeground(new Color(232, 211, 96));
+        label.setFont(FONT_BOLD.deriveFont(11.5f));
+        RoundedPanel panel = new RoundedPanel(PANEL_ALT, BORDER, RADIUS_COMPACT, new Insets(2, 8, 2, 8));
+        panel.setLayout(new FlowLayout(FlowLayout.CENTER, 0, 0));
+        panel.add(label);
+        return panel;
+    }
+
+    static JComponent accentBadge(String text) {
+        JLabel label = new JLabel(text == null ? "" : text.toUpperCase());
+        label.setForeground(TEXT);
+        label.setFont(FONT_BOLD.deriveFont(10.5f));
+        RoundedPanel panel = new RoundedPanel(ACCENT, null, RADIUS_COMPACT, new Insets(2, 8, 2, 8));
+        panel.setLayout(new FlowLayout(FlowLayout.CENTER, 0, 0));
+        panel.add(label);
+        return panel;
+    }
+
+    static JButton filterChip(String text, boolean selected, Runnable action) {
+        FlatButton button = new FlatButton(text, false, false);
+        button.setSelectedState(selected);
+        button.setFont(FONT_BOLD.deriveFont(12.5f));
+        button.setBorder(new EmptyBorder(6, 14, 6, 14));
+        if (action != null) {
+            button.addActionListener(e -> action.run());
+        }
+        return button;
+    }
+
+    static JComponent stateCard(String title, String message, String actionText, Runnable action) {
+        JPanel card = surface(RADIUS_CONTROL, new Insets(24, 24, 24, 24));
+        card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
+        card.setPreferredSize(new Dimension(560, actionText != null ? 190 : 160));
+        card.setMaximumSize(new Dimension(560, actionText != null ? 210 : 170));
+
+        JLabel heading = heading(title, 20f);
+        heading.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        String escaped = message == null ? "" : message.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
+        JLabel body = muted("<html><body style='width:455px'>" + escaped + "</body></html>");
+        body.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        card.add(heading);
+        card.add(Box.createVerticalStrut(9));
+        card.add(body);
+
+        if (actionText != null && action != null) {
+            card.add(Box.createVerticalStrut(18));
+            JButton actionButton = primaryButton(actionText);
+            actionButton.setAlignmentX(Component.LEFT_ALIGNMENT);
+            actionButton.addActionListener(e -> action.run());
+            card.add(actionButton);
+        }
+        return card;
+    }
+
     static JPanel surface() {
         return new RoundedPanel(PANEL, BORDER, RADIUS_CONTROL, new Insets(16, 16, 16, 16));
     }

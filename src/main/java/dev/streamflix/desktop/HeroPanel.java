@@ -43,12 +43,12 @@ final class HeroPanel extends JLayeredPane {
                     int h = getHeight();
 
                     g2.setPaint(new GradientPaint(
-                            0, 0, new Color(0, 0, 0, 225),
-                            Math.max(1, (int) (w * 0.68)), 0, new Color(0, 0, 0, 12)));
+                            0, 0, new Color(10, 12, 17, 245),
+                            Math.max(1, (int) (w * 0.72)), 0, new Color(10, 12, 17, 18)));
                     g2.fillRect(0, 0, w, h);
 
                     g2.setPaint(new GradientPaint(
-                            0, Math.max(1, (int) (h * 0.45)), new Color(0, 0, 0, 0),
+                            0, Math.max(1, (int) (h * 0.40)), new Color(10, 12, 17, 0),
                             0, h, Theme.BG));
                     g2.fillRect(0, 0, w, h);
                 } finally {
@@ -74,23 +74,17 @@ final class HeroPanel extends JLayeredPane {
         titleLabel = title;
         title.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JPanel metadata = new JPanel(new FlowLayout(FlowLayout.LEFT, 9, 0));
+        JPanel metadata = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
         metadata.setOpaque(false);
         metadata.setAlignmentX(Component.LEFT_ALIGNMENT);
         if (item.released() != null && !item.released().isBlank()) {
-            JLabel released = Theme.muted(item.released().length() >= 4 ? item.released().substring(0, 4) : item.released());
-            released.setFont(Theme.FONT_BOLD.deriveFont(12.5f));
-            metadata.add(released);
+            String year = item.released().length() >= 4 ? item.released().substring(0, 4) : item.released();
+            metadata.add(Theme.badge(year));
         }
         if (item.rating() != null && item.rating() > 0) {
-            JLabel rating = new JLabel(String.format("%.1f / 10", item.rating()));
-            rating.setForeground(new Color(232, 211, 96));
-            rating.setFont(Theme.FONT_BOLD.deriveFont(12.5f));
-            metadata.add(rating);
+            metadata.add(Theme.starRatingBadge(item.rating()));
         }
-        JLabel type = Theme.muted(item.type() == Models.ShowType.MOVIE ? "Película" : "Serie");
-        type.setFont(Theme.FONT.deriveFont(12.5f));
-        metadata.add(type);
+        metadata.add(Theme.badge(item.type() == Models.ShowType.MOVIE ? "Película" : "Serie"));
 
         String synopsis = item.overview() == null || item.overview().isBlank()
                 ? "Descubre este título en Streamflix."
@@ -116,6 +110,23 @@ final class HeroPanel extends JLayeredPane {
         JButton open = Theme.button("Más información", StreamflixIcons.Glyph.INFO);
         open.addActionListener(e -> onOpen.accept(item));
         actions.add(open);
+
+        String sourceId = item.sourceProviderId() != null ? item.sourceProviderId() : "tmdb";
+        boolean initiallyFavorite = UserData.isFavorite(sourceId, item.id());
+        JButton favorite = Theme.button(initiallyFavorite ? "En mi lista" : "Mi lista",
+                initiallyFavorite ? StreamflixIcons.Glyph.CHECK : StreamflixIcons.Glyph.PLUS);
+        favorite.setToolTipText(initiallyFavorite ? "Quitar de Mi lista" : "Guardar en Mi lista");
+        favorite.getAccessibleContext().setAccessibleName(initiallyFavorite ? "Quitar de Mi lista" : "Guardar en Mi lista");
+        favorite.addActionListener(e -> {
+            UserData.toggleFavorite(sourceId, item);
+            boolean selected = UserData.isFavorite(sourceId, item.id());
+            favorite.setText(selected ? "En mi lista" : "Mi lista");
+            favorite.setToolTipText(selected ? "Quitar de Mi lista" : "Guardar en Mi lista");
+            favorite.getAccessibleContext().setAccessibleName(selected ? "Quitar de Mi lista" : "Guardar en Mi lista");
+            Theme.setButtonIcon(favorite,
+                    selected ? StreamflixIcons.Glyph.CHECK : StreamflixIcons.Glyph.PLUS);
+        });
+        actions.add(favorite);
 
         copy.add(eyebrow);
         copy.add(Box.createVerticalStrut(10));
