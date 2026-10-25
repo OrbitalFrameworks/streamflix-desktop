@@ -15,9 +15,9 @@ You can also browse versioned releases and checksums on the [GitHub Releases pag
 
 ## Current stable release
 
-Version: **1.3.9**
+Source version: **1.4.0** (check GitHub Releases for actual published availability)
 
-The current stable release is **1.3.9**, adding fluid native navigation with short interruptible transitions, bounded RAM caching for catalog/Home views, unified multi-provider VOD search, ranked provider failover and the Sports Hub. The build also updates the verified upstream mpv provisioning URL after its previous pinned asset was removed. Streamflix's visual identity and vector icon system from 1.3.8 remain intact.
+Version **1.4.0** consolidates native Windows UX improvements since 1.3.9: embedded MainFrame playback, contextual favorites and search scopes, responsive editorial discovery, keyboard/accessibility fixes and an actionable first-run Home when no catalog titles have loaded. The Sports Hub, provider fallback and verified mpv provisioning remain supported. Published availability depends on the actual GitHub release, not this source declaration alone.
 
 ### Core experience
 
