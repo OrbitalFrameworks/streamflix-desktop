@@ -689,6 +689,11 @@ final class MainFrame extends JFrame {
         if (hero != null) {
             homeRoot.add(new HeroPanel(hero, this::playHeroItem, this::openDetails));
             homeRoot.add(Box.createVerticalStrut(10));
+        } else if (data.movies().isEmpty() && data.series().isEmpty()) {
+            homeRoot.add(new DiscoveryWelcomePanel(this::openSettings,
+                    () -> openCatalog(Mode.MOVIES, null, "Popular"),
+                    () -> switchMode(Mode.LIVE)));
+            homeRoot.add(Box.createVerticalStrut(16));
         }
 
         homeRoot.add(continueWatchingSection(data.history()));
@@ -769,15 +774,16 @@ final class MainFrame extends JFrame {
         section.add(heading, BorderLayout.NORTH);
 
         if (items.isEmpty()) {
-            JPanel empty = Theme.surface(Theme.RADIUS_CONTROL, new Insets(16, 20, 16, 20));
-            empty.setLayout(new FlowLayout(FlowLayout.LEFT, 12, 0));
-            JLabel icon = new JLabel(StreamflixIcons.icon(StreamflixIcons.Glyph.PLAY, 16));
-            JLabel message = Theme.muted("Aún no tienes reproducciones pendientes. Reproduce cualquier título del catálogo para retomarlo automáticamente aquí.");
+            JPanel empty = Theme.surface(Theme.RADIUS_CONTROL, new Insets(14, 20, 14, 20));
+            empty.setLayout(new BorderLayout(12, 0));
+            JLabel message = Theme.muted("Todavía no hay títulos para continuar. Aparecerán aquí al empezar a reproducir.");
             message.setFont(Theme.FONT.deriveFont(13f));
-            empty.add(icon);
-            empty.add(message);
+            empty.add(message, BorderLayout.CENTER);
+            JButton explore = Theme.button("Descubrir títulos", StreamflixIcons.Glyph.MORE);
+            explore.addActionListener(e -> openCatalog(Mode.MOVIES, null, "Popular"));
+            empty.add(explore, BorderLayout.EAST);
             section.add(empty, BorderLayout.CENTER);
-            section.setMaximumSize(new Dimension(Integer.MAX_VALUE, 110));
+            section.setMaximumSize(new Dimension(Integer.MAX_VALUE, 126));
             return section;
         }
 
@@ -972,6 +978,12 @@ final class MainFrame extends JFrame {
                 : bar.getValue();
         double target = Math.max(min, Math.min(max, base + preciseRotation * pixelsPerNotch));
         bar.putClientProperty("streamflix.smoothScrollTarget", target);
+
+        if (SmoothContentHost.isReducedMotion()) {
+            if (activeTimer != null) activeTimer.stop();
+            bar.setValue((int) Math.round(target));
+            return;
+        }
 
         if (activeTimer != null && activeTimer.isRunning()) return;
 
