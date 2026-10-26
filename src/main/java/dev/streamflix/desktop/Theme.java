@@ -423,10 +423,18 @@ final class Theme {
                     g2.fillRoundRect((getWidth() - width) / 2, Math.max(0, getHeight() - 2), width, 2, 2, 2);
                 }
                 if (focused) {
-                    g2.setColor(FOCUS);
-                    g2.setStroke(new BasicStroke(2f));
-                    g2.drawRoundRect(1, 1, Math.max(0, getWidth() - 3),
-                            Math.max(0, getHeight() - 3), RADIUS_CONTROL - 2, RADIUS_CONTROL - 2);
+                    if (topNavigation) {
+                        // Focus remains visible to keyboard users but does not
+                        // surround top-level navigation with a yellow box.
+                        g2.setColor(new Color(151, 160, 178, 195));
+                        g2.fillRoundRect(5, Math.max(0, getHeight() - 3),
+                                Math.max(0, getWidth() - 10), 2, 2, 2);
+                    } else {
+                        g2.setColor(FOCUS);
+                        g2.setStroke(new BasicStroke(2f));
+                        g2.drawRoundRect(1, 1, Math.max(0, getWidth() - 3),
+                                Math.max(0, getHeight() - 3), RADIUS_CONTROL - 2, RADIUS_CONTROL - 2);
+                    }
                 }
             } finally {
                 g2.dispose();

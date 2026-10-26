@@ -4,7 +4,7 @@ Upstream reference reviewed: `streamflix-reborn2/streamflix` at commit `91b27174
 
 ## Current Windows state
 
-Source version: **1.4.0**. Current public stable availability must be verified against GitHub Releases.
+Source version: **1.4.1**. Current public stable availability must be verified against GitHub Releases.
 
 | Area | Status | Notes |
 |---|---|---|
@@ -57,6 +57,9 @@ Recent visual/UX candidate recovery (post-f798b10):
 - Search Experience: Dynamic search scope chips (All, Movies, Series, Live TV) in catalogFilters allowing instant scope switching without retyping, plus contextual guidance and recovery states.
 - Mi Lista (Favorites): Dedicated category filter chips (Todos, Películas, Series) with real-time reactive counts, and an actionable empty state guiding users to explore popular movies. Live TV remains a separate catalog model and is not represented as a saved ShowItem.
 - Reduced-motion preferences also disable eased Home/rail scrollbar movement; the direct scrollbar value remains immediately responsive.
+- Player pop-out includes a reverse **Volver a integrar en Streamflix** action. The native mpv surface is recreated (not reparented), with the same source and last known playback time; this requires an ordinary playback restart, not gapless migration.
+- Fullscreen pop-out uses physical monitor bounds including the taskbar instead of maximization to the usable work area. Native Windows regression coverage checks the bounds and restores the prior window state.
+- Catalog cards retain the supplied TMDb w1280 backdrop URL instead of rewriting it to w780, and resize using cached bicubic interpolation. Video quality profiles (including Data Saver) remain separate from thumbnail resolution; a low-resolution third-party source cannot gain lost detail via interpolation.
 - Detail View: Season selector displays episode counts ("Temporada 1 (10)"), rich metadata pills, and polished episode row keyboard navigation.
 
 ## Release engineering

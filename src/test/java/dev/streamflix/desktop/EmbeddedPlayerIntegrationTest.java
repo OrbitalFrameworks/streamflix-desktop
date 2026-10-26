@@ -9,6 +9,7 @@ public final class EmbeddedPlayerIntegrationTest {
     public static void main(String[] args) throws Exception {
         testEmbeddedPlayerViewStructure();
         testPlayerOverlayMaintainsCanvasBounds();
+        testFullResolutionArtworkUrl();
         testMainFrameEmbeddedPlayerFlow();
         testPopOutWindowDelegation();
         System.out.println("EmbeddedPlayerIntegrationTest OK");
@@ -53,6 +54,14 @@ public final class EmbeddedPlayerIntegrationTest {
                 "Hiding overlay chrome must never change video canvas size or cause resize-flash");
     }
 
+    private static void testFullResolutionArtworkUrl() {
+        String original = "https://image.tmdb.org/t/p/w1280/backdrop.jpg";
+        check(original.equals(LandscapeCard.cardArtworkUrl(original)),
+                "Wide TMDb artwork must not be silently downgraded to w780");
+        check(LandscapeCard.cardArtworkUrl(null) == null,
+                "Missing artwork must still use the honest fallback");
+    }
+
     private static void testMainFrameEmbeddedPlayerFlow() throws Exception {
         if (GraphicsEnvironment.isHeadless()) {
             return;
@@ -88,9 +97,28 @@ public final class EmbeddedPlayerIntegrationTest {
                 check(window != null, "Pop-out window must be created");
                 check(window.playerView() != null, "Pop-out window must delegate to an EmbeddedPlayerView");
                 check(window.isDisplayable(), "Pop-out window must be displayable");
+                AtomicBoolean docked = new AtomicBoolean(false);
+                window.setOnDock(() -> docked.set(true));
+                check(window.playerView().getActiveView() == window.playerView(),
+                        "Pop-out player remains the active view until return");
+                JButton dock = findButtonByTooltip(window, "Volver a integrar en Streamflix");
+                check(dock != null, "Pop-out must show a labeled return-to-main control");
+                dock.doClick();
+                check(docked.get(), "Return-to-main button must invoke dock callback");
             } finally {
                 window.dispose();
             }
         });
+    }
+
+    private static JButton findButtonByTooltip(Container root, String tooltip) {
+        for (Component child : root.getComponents()) {
+            if (child instanceof JButton button && tooltip.equals(button.getToolTipText())) return button;
+            if (child instanceof Container nested) {
+                JButton found = findButtonByTooltip(nested, tooltip);
+                if (found != null) return found;
+            }
+        }
+        return null;
     }
 }

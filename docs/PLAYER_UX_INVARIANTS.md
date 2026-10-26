@@ -68,6 +68,19 @@ Playback occurs directly inside `MainFrame`'s `contentStack` under the `PLAYER` 
 - Standalone/pop-out player exists only as an explicit secondary action;
 - Native video surface, lifecycle, keyboard controls, and cleanup are managed with zero duplicate playback sessions.
 
+## 7. Pop-out can return to the main window
+
+- The top-right player action opens a separate window, and that window exposes **Volver a integrar en Streamflix**.
+- When docking, the current media source, server, request identifier and last known time are carried to a new native in-frame surface. The mpv Canvas is never reparented while its native WID is active.
+- Docking restarts the stream at the saved position. It is not guaranteed to be visually gapless and depends on the same upstream source remaining accessible.
+- Never reuse a request ID from a stopped surface: `stopPlayback()` invalidates it. Obtain a fresh mpv request ID for each transfer, and run the IPC/media handshake outside the Swing event-dispatch thread.
+
+## 8. Fullscreen versus maximization
+
+- A fullscreen pop-out covers the **physical display bounds**, not `MAXIMIZED_BOTH` or taskbar-excluded work area.
+- Exit restores the previous frame size, maximization state and Pin always-on-top preference.
+- Windows GUI E2E verifies monitor bounds and round-trip window restoration.
+
 Regression coverage:
 - EmbeddedPlayerIntegrationTest
 - MpvPlayerTest

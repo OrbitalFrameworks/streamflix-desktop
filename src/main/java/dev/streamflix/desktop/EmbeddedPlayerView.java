@@ -82,6 +82,8 @@ final class EmbeddedPlayerView extends JPanel {
     private final Window appOwner;
     private boolean fullScreen;
     private Rectangle windowedBounds;
+    private boolean windowedAlwaysOnTop;
+    private int windowedExtendedState;
     private String currentHlsBitrateOverride;
     private final Runnable onClose;
     private Runnable onPopOut;
@@ -123,6 +125,14 @@ final class EmbeddedPlayerView extends JPanel {
         popOutButton.setVisible(onPopOut != null);
     }
 
+    void setOnDock(Runnable onDock) {
+        this.onPopOut = onDock;
+        popOutButton.setVisible(onDock != null);
+        Theme.setButtonIcon(popOutButton, StreamflixIcons.Glyph.RESTORE);
+        popOutButton.setToolTipText("Volver a integrar en Streamflix");
+        popOutButton.getAccessibleContext().setAccessibleName("Volver a integrar en Streamflix");
+    }
+
     Models.Video currentVideo() {
         return currentVideo;
     }
@@ -133,6 +143,16 @@ final class EmbeddedPlayerView extends JPanel {
 
     long currentRequestId() {
         return currentRequestId;
+    }
+
+    void primeTransfer(Models.Video video, String server, long requestId, double position) {
+        // Keep the transfer target inspectable even while asynchronous mpv
+        // startup has not yet reached start(). A rapid return-to-main action
+        // must not lose its source or starting position.
+        currentVideo = video;
+        currentServerName = server;
+        currentRequestId = requestId;
+        lastKnownTime = Math.max(0.0, position);
     }
 
     double lastKnownTime() {
@@ -416,13 +436,23 @@ final class EmbeddedPlayerView extends JPanel {
             GraphicsDevice device = frame.getGraphicsConfiguration().getDevice();
             if (!fullScreen) {
                 windowedBounds = frame.getBounds();
+                windowedAlwaysOnTop = frame.isAlwaysOnTop();
+                windowedExtendedState = frame.getExtendedState();
                 fullScreen = true;
                 chromeHideTimer.stop();
                 try {
                     device.setFullScreenWindow(frame);
                 } catch (Exception ex) {
-                    frame.setExtendedState(Frame.MAXIMIZED_BOTH);
+                    AppLog.warn("player", "Modo exclusivo no disponible; usando los límites físicos del monitor", ex);
                 }
+                // MAXIMIZED_BOTH respects the taskbar/work area; true player
+                // fullscreen must cover the monitor including its taskbar.
+                // In particular pop-out frames are already undecorated, so
+                // do not dispose/recreate the native video Canvas here.
+                frame.setBounds(device.getDefaultConfiguration().getBounds());
+                frame.setAlwaysOnTop(true);
+                frame.toFront();
+                frame.revalidate();
                 revealChrome();
             } else {
                 exitFullscreen();
@@ -446,6 +476,8 @@ final class EmbeddedPlayerView extends JPanel {
                 }
             } catch (Exception ignored) {}
             fullScreen = false;
+            frame.setExtendedState(windowedExtendedState);
+            frame.setAlwaysOnTop(windowedAlwaysOnTop);
             chromeTop.setVisible(true);
             chromeBottom.setVisible(true);
             if (windowedBounds != null && windowedBounds.width > 0 && windowedBounds.height > 0) {

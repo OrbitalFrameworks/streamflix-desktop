@@ -182,9 +182,11 @@ final class LandscapeCard extends JLayeredPane {
         overlay.setBounds(0, 0, getWidth(), getHeight());
     }
 
-    private static String cardArtworkUrl(String url) {
-        if (url == null || url.isBlank()) return url;
-        return url.replace("/t/p/w1280/", "/t/p/w780/");
+    static String cardArtworkUrl(String url) {
+        // Preserve the full-resolution URL supplied by the metadata provider.
+        // The old w1280 -> w780 rewrite visibly degraded wide 16:9 covers on
+        // HiDPI desktops, and made image caching store the smaller variant.
+        return url;
     }
 
     private void animateHover(float target) {
