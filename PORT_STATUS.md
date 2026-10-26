@@ -4,7 +4,7 @@ Upstream reference reviewed: `streamflix-reborn2/streamflix` at commit `91b27174
 
 ## Current Windows state
 
-Source version: **1.4.1**. Current public stable availability must be verified against GitHub Releases.
+Source version: **1.4.2**. Current public stable availability must be verified against GitHub Releases.
 
 | Area | Status | Notes |
 |---|---|---|

@@ -136,6 +136,33 @@ public final class WindowsNativeGuiE2E {
         }
     }
 
+    private static void verifyCatalogContentFits(MainFrame frame) {
+        try {
+            var scrollField = MainFrame.class.getDeclaredField("catalogScroll");
+            scrollField.setAccessible(true);
+            JScrollPane scroll = (JScrollPane) scrollField.get(frame);
+            JViewport viewport = scroll.getViewport();
+            Component content = viewport.getView();
+            verify(content instanceof Scrollable
+                            && ((Scrollable) content).getScrollableTracksViewportWidth(),
+                    "Catalog content tracks the viewport width");
+            verify(content.getWidth() <= viewport.getExtentSize().width + 1,
+                    "Catalog body cannot extend beyond the scroll viewport");
+
+            var gridField = MainFrame.class.getDeclaredField("grid");
+            gridField.setAccessible(true);
+            JPanel cardGrid = (JPanel) gridField.get(frame);
+            for (Component card : cardGrid.getComponents()) {
+                if (!(card instanceof LandscapeCard)) continue;
+                Rectangle bounds = SwingUtilities.convertRectangle(card.getParent(), card.getBounds(), viewport);
+                verify(bounds.x >= -1 && bounds.x + bounds.width <= viewport.getWidth() + 1,
+                        "Catalog card must not be cropped horizontally: " + bounds);
+            }
+        } catch (ReflectiveOperationException e) {
+            throw new AssertionError("Cannot inspect Catalog viewport layout", e);
+        }
+    }
+
     private static void clickButton(Container root, String label) throws Exception {
         AtomicReference<Point> center = new AtomicReference<>();
         edt(() -> {
@@ -472,6 +499,7 @@ public final class WindowsNativeGuiE2E {
             Thread.sleep(1200);
 
             // Capture SCREENSHOT 04: Populated Search View
+            edt(() -> verifyCatalogContentFits(frame));
             captureScreen("04-search-populated", frame, 1280, 800);
 
             // STEP 5: Open Title Detail View with populated item
