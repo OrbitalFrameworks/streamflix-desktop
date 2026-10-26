@@ -195,7 +195,7 @@ final class MainFrame extends JFrame {
         logo.addFocusListener(new FocusAdapter() {
             @Override public void focusGained(FocusEvent event) {
                 logo.setBorder(BorderFactory.createCompoundBorder(
-                        BorderFactory.createLineBorder(Theme.FOCUS), logoPadding));
+                        BorderFactory.createLineBorder(Theme.MUTED), logoPadding));
             }
 
             @Override public void focusLost(FocusEvent event) {
@@ -1541,16 +1541,28 @@ final class MainFrame extends JFrame {
         activePlayerView.setOnPopOut(() -> {
             Models.Video vid = activePlayerView.currentVideo();
             String srv = activePlayerView.currentServerName();
-            long req = activePlayerView.currentRequestId();
             double time = activePlayerView.lastKnownTime();
             closeEmbeddedPlayer();
             EmbeddedPlayerWindow pop = EmbeddedPlayerWindow.open(this, title);
-            if (vid != null) {
-                try {
-                    pop.start(vid, srv, req, time);
-                } catch (Exception ex) {
-                    AppLog.warn("player", "Error al transferir a ventana pop-out", ex);
+            pop.setOnDock(() -> {
+                if (pop.playerView().isFullScreen()) pop.playerView().exitFullscreen();
+                Models.Video returnedVideo = pop.playerView().currentVideo();
+                String returnedServer = pop.playerView().currentServerName();
+                double returnedTime = pop.playerView().lastKnownTime();
+                pop.stopPlayback();
+                pop.dispose();
+                // mpv binds to a native window handle. Moving a live Canvas
+                // would invalidate its WID; start the in-frame surface again
+                // with the same source and last known playback position.
+                EmbeddedPlayerView embedded = openEmbeddedPlayer(title, onHistoryChanged);
+                if (returnedVideo != null) {
+                    startTransferredPlayer(embedded, returnedVideo, returnedServer,
+                            returnedTime, "Error al restaurar la reproducción integrada");
                 }
+            });
+            if (vid != null) {
+                startTransferredPlayer(pop.playerView(), vid, srv, time,
+                        "Error al transferir a ventana pop-out");
             }
         });
 
@@ -1566,6 +1578,27 @@ final class MainFrame extends JFrame {
             if (activePlayerView != null) activePlayerView.requestFocusInWindow();
         });
         return activePlayerView;
+    }
+
+    private static void startTransferredPlayer(EmbeddedPlayerView view,
+            Models.Video video, String server, double lastPosition, String failureLog) {
+        // stopPlayback() invalidates the old mpv request ID. Each new WID must
+        // have a fresh ID and its potentially slow IPC/media readiness must
+        // never block the Swing EDT.
+        final long requestId = MpvPlayer.beginRequest();
+        view.primeTransfer(video, server, requestId, lastPosition);
+        Thread transfer = new Thread(() -> {
+            try {
+                view.start(video, server, requestId, Math.max(0.0, lastPosition));
+            } catch (Exception ex) {
+                AppLog.warn("player", failureLog, ex);
+                SwingUtilities.invokeLater(() -> {
+                    if (view.isDisplayable()) view.showFailure("No se pudo reanudar la reproducción.");
+                });
+            }
+        }, "streamflix-player-transfer");
+        transfer.setDaemon(true);
+        transfer.start();
     }
 
     void closeEmbeddedPlayer() {

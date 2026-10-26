@@ -71,9 +71,10 @@ final class ArtworkPanel extends JPanel {
         BufferedImage canvas = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g2 = canvas.createGraphics();
         try {
-            // Bilinear is visually sufficient for card/downscale work and materially
-            // cheaper than re-running bicubic scaling on every scroll repaint.
-            g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            // A resize is cached per panel size. Bicubic interpolation reduces
+            // jagged edges on small source artwork enlarged by HiDPI scaling;
+            // it cannot invent missing detail from a low-resolution provider.
+            g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
             g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_SPEED);
             g2.drawImage(source, (width - w) / 2, (height - h) / 2, w, h, null);
         } finally {

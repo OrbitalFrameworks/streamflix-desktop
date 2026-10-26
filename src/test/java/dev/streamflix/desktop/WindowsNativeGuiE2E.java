@@ -64,6 +64,17 @@ public final class WindowsNativeGuiE2E {
         return null;
     }
 
+    private static JButton findButtonByTooltip(Container root, String tooltip) {
+        for (Component component : root.getComponents()) {
+            if (component instanceof JButton button && tooltip.equals(button.getToolTipText())) return button;
+            if (component instanceof Container container) {
+                JButton found = findButtonByTooltip(container, tooltip);
+                if (found != null) return found;
+            }
+        }
+        return null;
+    }
+
     private static HeroPanel findHero(Component root) {
         if (root instanceof HeroPanel hero) return hero;
         if (root instanceof Container container) {
@@ -536,6 +547,52 @@ public final class WindowsNativeGuiE2E {
 
             // Capture SCREENSHOT 07: Active Embedded Player
             captureScreen("07-embedded-player", frame, 1280, 800);
+
+            // Verify the two-way pop-out workflow against the real native
+            // player surface, not just structural Swing component assertions.
+            edt(() -> {
+                JButton popButton = findButtonByTooltip(playerView,
+                        "Abrir en ventana separada (Pop-out)");
+                verify(popButton != null && popButton.isShowing(), "Pop-out control visible");
+                popButton.doClick();
+            });
+            Thread.sleep(900);
+            AtomicReference<EmbeddedPlayerWindow> popRef = new AtomicReference<>();
+            edt(() -> {
+                for (Window w : Window.getWindows()) {
+                    if (w instanceof EmbeddedPlayerWindow playerWindow && w.isShowing()) {
+                        popRef.set(playerWindow);
+                    }
+                }
+            });
+            EmbeddedPlayerWindow pop = popRef.get();
+            verify(pop != null && pop.isShowing(), "Pop-out player opens visibly");
+            edt(() -> {
+                JButton dock = findButtonByTooltip(pop,
+                        "Volver a integrar en Streamflix");
+                verify(dock != null && dock.isShowing(), "Reverse dock button is visible");
+                pop.playerView().toggleFullscreen();
+                verify(pop.playerView().isFullScreen(), "Pop-out enters fullscreen");
+                Rectangle expected = pop.getGraphicsConfiguration().getDevice()
+                        .getDefaultConfiguration().getBounds();
+                verify(pop.getBounds().equals(expected),
+                        "Fullscreen pop-out must cover physical screen, not taskbar work area: " + pop.getBounds());
+                pop.playerView().exitFullscreen();
+                verify(!pop.playerView().isFullScreen(), "Fullscreen exits cleanly");
+                dock.doClick();
+            });
+            Thread.sleep(750);
+            edt(() -> {
+                verify(frame.isPlayerActive(), "Dock returns playback to embedded MainFrame");
+                verify(!pop.isDisplayable(), "Pop-out disposed after docking");
+            });
+            if (nativePlaybackObserved) {
+                long resumeDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(12);
+                while (!MpvPlayer.isCurrentAlive() && System.nanoTime() < resumeDeadline) {
+                    Thread.sleep(200);
+                }
+                verify(MpvPlayer.isCurrentAlive(), "Dock resumes synthetic playback in MainFrame");
+            }
 
             // STEP 8: Close player and verify seamless restoration to Detail/Home
             edt(frame::closeEmbeddedPlayer);

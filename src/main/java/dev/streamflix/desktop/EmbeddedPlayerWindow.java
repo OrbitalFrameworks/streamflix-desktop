@@ -54,6 +54,12 @@ final class EmbeddedPlayerWindow extends JFrame {
         return playerView;
     }
 
+    void setOnDock(Runnable callback) {
+        // The same top-right control becomes the inverse of Pop-out when
+        // the player belongs to a standalone window.
+        playerView.setOnDock(callback);
+    }
+
     static EmbeddedPlayerWindow open(Window owner, String title) {
         if (!SwingUtilities.isEventDispatchThread()) {
             throw new IllegalStateException("El reproductor debe abrirse desde la UI.");
