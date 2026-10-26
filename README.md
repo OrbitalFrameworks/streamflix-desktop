@@ -15,9 +15,9 @@ You can also browse versioned releases and checksums on the [GitHub Releases pag
 
 ## Current stable release
 
-Source version: **1.4.1** (check GitHub Releases for actual published availability)
+Source version: **1.4.2** (check GitHub Releases for actual published availability)
 
-Version **1.4.1** builds on the 1.4.0 native UX release with more discreet top-navigation keyboard focus, full-resolution TMDb backdrops on catalog cards, reversible pop-out playback and a true monitor-bounds fullscreen path. The Sports Hub, provider fallback and verified mpv provisioning remain supported. Published availability depends on the actual GitHub release, not this source declaration alone.
+Version **1.4.2** builds on the 1.4.1 player and artwork corrections by preventing catalog grid columns from extending beyond the visible viewport. The Sports Hub, provider fallback and verified mpv provisioning remain supported. Published availability depends on the actual GitHub release, not this source declaration alone.
 
 ### Core experience
 

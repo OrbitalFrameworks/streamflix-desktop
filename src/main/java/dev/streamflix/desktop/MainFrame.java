@@ -288,7 +288,10 @@ final class MainFrame extends JFrame {
     private JComponent buildContent() {
         contentStack.setBackground(Theme.BG);
 
-        JPanel catalogBody = new JPanel(new BorderLayout());
+        // A plain JPanel keeps the preferred width of its child grid even
+        // when larger than the visible scroll viewport. With horizontal
+        // scrolling disabled that silently cuts the last card off-screen.
+        JPanel catalogBody = new WidthTrackingPanel(new BorderLayout());
         catalogBody.setBackground(Theme.BG);
 
         grid.setBackground(Theme.BG);
