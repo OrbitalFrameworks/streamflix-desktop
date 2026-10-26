@@ -2,6 +2,7 @@ package dev.streamflix.desktop;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 
 /** Responsive cover artwork that caches the expensive cover-scale operation. */
@@ -16,13 +17,18 @@ final class ArtworkPanel extends JPanel {
     ArtworkPanel(String url) {
         setOpaque(true);
         setBackground(Theme.PANEL_ALT);
-        ImageLoader.loadRaw(url, loaded -> {
-            image = loaded;
-            scaled = null;
-            scaledWidth = -1;
-            scaledHeight = -1;
-            repaint();
-        });
+        if (url != null && !url.isBlank()) {
+            ImageLoader.loadRaw(url, this::acceptImage);
+        }
+    }
+
+    /** Keep the original decoded pixels. Never cache a 1x bitmap as the only variant. */
+    void acceptImage(BufferedImage loaded) {
+        image = loaded;
+        scaled = null;
+        scaledWidth = -1;
+        scaledHeight = -1;
+        repaint();
     }
 
     void setFallbackText(String text) {
@@ -46,8 +52,18 @@ final class ArtworkPanel extends JPanel {
             return;
         }
 
-        int targetWidth = Math.max(1, getWidth());
-        int targetHeight = Math.max(1, getHeight());
+        int logicalWidth = Math.max(1, getWidth());
+        int logicalHeight = Math.max(1, getHeight());
+        // Swing paints in logical coordinates, but Windows' Graphics2D can
+        // already be transformed by 125%, 150%, or 200%. Caching a bitmap at
+        // just logicalWidth x logicalHeight makes Java2D upscale that bitmap
+        // a second time and loses fine detail even if the TMDb source is sharp.
+        // Render one cover image directly at the physical pixel size instead.
+        AffineTransform tx = g instanceof Graphics2D g2 ? g2.getTransform() : new AffineTransform();
+        double scaleX = Math.hypot(tx.getScaleX(), tx.getShearY());
+        double scaleY = Math.hypot(tx.getScaleY(), tx.getShearX());
+        int targetWidth = physicalPixels(logicalWidth, scaleX);
+        int targetHeight = physicalPixels(logicalHeight, scaleY);
         BufferedImage ready = scaled;
 
         if (ready == null || scaledWidth != targetWidth || scaledHeight != targetHeight) {
@@ -57,7 +73,14 @@ final class ArtworkPanel extends JPanel {
             scaledHeight = targetHeight;
         }
 
-        g.drawImage(ready, 0, 0, null);
+        // The destination is still logical; the Graphics2D device transform
+        // maps the cached physical bitmap 1:1 to the display's real pixels.
+        g.drawImage(ready, 0, 0, logicalWidth, logicalHeight, null);
+    }
+
+    private static int physicalPixels(int logical, double scale) {
+        if (!Double.isFinite(scale) || scale <= 0) scale = 1.0;
+        return Math.max(1, (int) Math.ceil(logical * scale));
     }
 
     private static BufferedImage scaleCover(BufferedImage source, int width, int height) {
@@ -71,11 +94,10 @@ final class ArtworkPanel extends JPanel {
         BufferedImage canvas = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g2 = canvas.createGraphics();
         try {
-            // A resize is cached per panel size. Bicubic interpolation reduces
-            // jagged edges on small source artwork enlarged by HiDPI scaling;
-            // it cannot invent missing detail from a low-resolution provider.
+            // One bicubic crop directly from the decoded source to the screen
+            // pixel grid. Do not do an intermediate lossy 1x resize first.
             g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
-            g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_SPEED);
+            g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
             g2.drawImage(source, (width - w) / 2, (height - h) / 2, w, h, null);
         } finally {
             g2.dispose();

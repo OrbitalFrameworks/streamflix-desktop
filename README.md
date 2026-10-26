@@ -15,9 +15,9 @@ You can also browse versioned releases and checksums on the [GitHub Releases pag
 
 ## Current stable release
 
-Source version: **1.4.2** (check GitHub Releases for actual published availability)
+Source version: **1.4.3** (check GitHub Releases for actual published availability)
 
-Version **1.4.2** builds on the 1.4.1 player and artwork corrections by preventing catalog grid columns from extending beyond the visible viewport. The Sports Hub, provider fallback and verified mpv provisioning remain supported. Published availability depends on the actual GitHub release, not this source declaration alone.
+Version **1.4.3** fixes an additional source of soft catalog artwork on high-density Windows displays: the image cache now scales directly from the original artwork to the physical display pixels, rather than caching only at Swing's logical width. The 1.4.2 catalog viewport fix and 1.4.1 player improvements remain included. Published availability depends on the actual GitHub release, not this source declaration alone.
 
 ### Core experience
 
