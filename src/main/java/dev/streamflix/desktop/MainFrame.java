@@ -342,12 +342,13 @@ final class MainFrame extends JFrame {
         homeScroll.getViewport().setScrollMode(JViewport.SIMPLE_SCROLL_MODE);
         homeScroll.getVerticalScrollBar().setUnitIncrement(28);
         homeScroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
-        homeScroll.setWheelScrollingEnabled(false);
-        homeScroll.addMouseWheelListener(e -> {
-            if (e.isConsumed()) return;
-            scrollBarBy(homeScroll.getVerticalScrollBar(), e.getPreciseWheelRotation(), 92);
-            e.consume();
-        });
+        // Home contains several large layered backdrops. The custom 16-ms
+        // easing timer repainted those layers across multiple display frames
+        // for a single wheel event, creating visible horizontal screen tears
+        // on Windows even with SIMPLE_SCROLL_MODE. Let Swing perform one
+        // native viewport update per wheel event instead. Keep the smooth
+        // scroller for small horizontal content rails only.
+        homeScroll.setWheelScrollingEnabled(true);
 
         detailHost.setBackground(Theme.BG);
         playerHost.setBackground(Color.BLACK);

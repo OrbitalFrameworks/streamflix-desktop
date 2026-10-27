@@ -136,6 +136,8 @@ public final class WindowsNativeGuiE2E {
             Component view = viewport.getView();
             verify(viewport.getScrollMode() == JViewport.SIMPLE_SCROLL_MODE,
                     "Home viewport repaints rather than blitting layered hero fragments during scroll");
+            verify(scroll.isWheelScrollingEnabled(),
+                    "Home vertical scrolling uses the native wheel pathway, not the custom animation timer");
             FeaturedHeroCarousel featured = findFeatured(view);
             verify(featured != null && featured.getHeight() == FeaturedHeroCarousel.HEIGHT,
                     "Featured carousel keeps a fixed height in the laid-out Home");
@@ -146,6 +148,19 @@ public final class WindowsNativeGuiE2E {
                     "Advancing Home featured artwork does not move the catalog below");
             verify(beforeItem != featured.currentItem(),
                     "The Home hero can switch to a different title without rebuilding Home");
+            int initialScroll = scroll.getVerticalScrollBar().getValue();
+            for (int n = 0; n < 3; n++) {
+                scroll.dispatchEvent(new java.awt.event.MouseWheelEvent(scroll,
+                        java.awt.event.MouseEvent.MOUSE_WHEEL,
+                        System.currentTimeMillis(), 0,
+                        80, 100, 0, false,
+                        java.awt.event.MouseWheelEvent.WHEEL_UNIT_SCROLL, 3, 1));
+            }
+            verify(scroll.getVerticalScrollBar().getValue() > initialScroll,
+                    "Wheel input moves Home immediately without a queued frame-by-frame animation");
+            verify(scroll.getVerticalScrollBar().getClientProperty("streamflix.smoothScrollTimer") == null,
+                    "Vertical Home wheel activity never creates a smooth-scroll repaint timer");
+            scroll.getVerticalScrollBar().setValue(initialScroll);
             HeroPanel hero = findHero(view);
             verify(view != null && view.getWidth() <= viewport.getExtentSize().width + 1,
                     "Home content tracks viewport width, not oversized preferred child widths");
