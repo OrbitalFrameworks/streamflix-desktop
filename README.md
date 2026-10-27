@@ -15,9 +15,9 @@ You can also browse versioned releases and checksums on the [GitHub Releases pag
 
 ## Current stable release
 
-Source version: **1.4.3** (check GitHub Releases for actual published availability)
+Source version: **1.4.4** (check GitHub Releases for actual published availability)
 
-Version **1.4.3** fixes an additional source of soft catalog artwork on high-density Windows displays: the image cache now scales directly from the original artwork to the physical display pixels, rather than caching only at Swing's logical width. The 1.4.2 catalog viewport fix and 1.4.1 player improvements remain included. Published availability depends on the actual GitHub release, not this source declaration alone.
+Version **1.4.4** rotates several featured movie and series titles on Home instead of always showing the highest-rated series. It also switches Home scrolling to full viewport repainting to address horizontal seams and stale artwork fragments. The 1.4.3 HiDPI artwork fix and prior player improvements remain included. Published availability depends on the actual GitHub release, not this source declaration alone.
 
 ### Core experience
 

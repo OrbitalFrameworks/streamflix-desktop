@@ -32,6 +32,7 @@ final class MainFrame extends JFrame {
     private String lastFocusedItemId;
     private final JPanel grid = new JPanel();
     private final JPanel homeRoot = new JPanel();
+    private final int featuredStartIndex = java.util.concurrent.ThreadLocalRandom.current().nextInt(1000);
     private final JPanel pagingBar = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 0));
     private final JScrollPane catalogScroll = new JScrollPane();
     private final JScrollPane homeScroll = new JScrollPane();
@@ -335,6 +336,10 @@ final class MainFrame extends JFrame {
         homeScroll.setViewportView(homeViewport);
         homeScroll.setBorder(null);
         homeScroll.getViewport().setBackground(Theme.BG);
+        // JViewport's default pixel blitting leaves horizontal seams/ghosts
+        // over the layered artwork while the Home view scrolls on Windows.
+        // Repaint from the cached artwork instead of copying stale pixels.
+        homeScroll.getViewport().setScrollMode(JViewport.SIMPLE_SCROLL_MODE);
         homeScroll.getVerticalScrollBar().setUnitIncrement(28);
         homeScroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
         homeScroll.setWheelScrollingEnabled(false);
@@ -681,16 +686,10 @@ final class MainFrame extends JFrame {
     private void renderHome(HomeData data) {
         homeRoot.removeAll();
 
-        Models.ShowItem hero = java.util.stream.Stream.concat(
-                        data.movies().stream(), data.series().stream())
-                .filter(item -> item.banner() != null && !item.banner().isBlank())
-                .max(java.util.Comparator.comparingDouble(
-                        item -> item.rating() == null ? 0.0 : item.rating()))
-                .orElseGet(() -> !data.series().isEmpty()
-                        ? data.series().get(0)
-                        : !data.movies().isEmpty() ? data.movies().get(0) : null);
-        if (hero != null) {
-            homeRoot.add(new HeroPanel(hero, this::playHeroItem, this::openDetails));
+        List<Models.ShowItem> featured = FeaturedHeroCarousel.select(data.movies(), data.series());
+        if (!featured.isEmpty()) {
+            homeRoot.add(new FeaturedHeroCarousel(featured, featuredStartIndex,
+                    this::playHeroItem, this::openDetails));
             homeRoot.add(Box.createVerticalStrut(10));
         } else if (data.movies().isEmpty() && data.series().isEmpty()) {
             homeRoot.add(new DiscoveryWelcomePanel(this::openSettings,
@@ -1517,7 +1516,8 @@ final class MainFrame extends JFrame {
                 card.requestFocusInWindow();
                 return true;
             }
-            if (c instanceof HeroPanel hero && hero.item() != null && targetId.equals(hero.item().id())) {
+            if (c instanceof HeroPanel hero && hero.isShowing() && hero.item() != null
+                    && targetId.equals(hero.item().id())) {
                 hero.requestFocusInWindow();
                 return true;
             }

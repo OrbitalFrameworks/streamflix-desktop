@@ -86,6 +86,17 @@ public final class WindowsNativeGuiE2E {
         return null;
     }
 
+    private static FeaturedHeroCarousel findFeatured(Component root) {
+        if (root instanceof FeaturedHeroCarousel featured) return featured;
+        if (root instanceof Container container) {
+            for (Component child : container.getComponents()) {
+                FeaturedHeroCarousel match = findFeatured(child);
+                if (match != null) return match;
+            }
+        }
+        return null;
+    }
+
     /** Wait for the actual async Home/catalog layout, not an arbitrary fixed delay.
      * This is polled outside the EDT so Swing workers and layout events can run.
      */
@@ -123,6 +134,18 @@ public final class WindowsNativeGuiE2E {
             JScrollPane scroll = (JScrollPane) field.get(frame);
             JViewport viewport = scroll.getViewport();
             Component view = viewport.getView();
+            verify(viewport.getScrollMode() == JViewport.SIMPLE_SCROLL_MODE,
+                    "Home viewport repaints rather than blitting layered hero fragments during scroll");
+            FeaturedHeroCarousel featured = findFeatured(view);
+            verify(featured != null && featured.getHeight() == FeaturedHeroCarousel.HEIGHT,
+                    "Featured carousel keeps a fixed height in the laid-out Home");
+            Dimension before = view.getSize();
+            Models.ShowItem beforeItem = featured.currentItem();
+            featured.step(1);
+            verify(view.getSize().equals(before),
+                    "Advancing Home featured artwork does not move the catalog below");
+            verify(beforeItem != featured.currentItem(),
+                    "The Home hero can switch to a different title without rebuilding Home");
             HeroPanel hero = findHero(view);
             verify(view != null && view.getWidth() <= viewport.getExtentSize().width + 1,
                     "Home content tracks viewport width, not oversized preferred child widths");

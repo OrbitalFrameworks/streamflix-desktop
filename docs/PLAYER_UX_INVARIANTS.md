@@ -81,6 +81,14 @@ Playback occurs directly inside `MainFrame`'s `contentStack` under the `PLAYER` 
 - Exit restores the previous frame size, maximization state and Pin always-on-top preference.
 - Windows GUI E2E verifies monitor bounds and round-trip window restoration.
 
+## 9. Home featured banner and scrolling
+
+- Home features several unique available movie/series titles rather than always picking the globally highest-rated series.
+- The hero rotates every 12 seconds when shown and offers Previous/Next actions. Its height does not change when the selected item changes.
+- Home's scroll viewport uses `SIMPLE_SCROLL_MODE`: never blit cached window pixels across the layered artwork while scrolling, because these can leave stale horizontal image fragments on Windows.
+- Hero slides are mounted once per Home render; changing selection must not rebuild Home or shift Continue Watching.
+- Native GUI E2E covers the fixed height, rotation, viewport mode and stable Home geometry. A user-visible Windows scroll recording is still required to close the original flicker report conclusively.
+
 Regression coverage:
 - EmbeddedPlayerIntegrationTest
 - MpvPlayerTest
