@@ -15,9 +15,9 @@ You can also browse versioned releases and checksums on the [GitHub Releases pag
 
 ## Current stable release
 
-Source version: **1.4.4** (check GitHub Releases for actual published availability)
+Source version: **1.4.5** (check GitHub Releases for actual published availability)
 
-Version **1.4.4** rotates several featured movie and series titles on Home instead of always showing the highest-rated series. It also switches Home scrolling to full viewport repainting to address horizontal seams and stale artwork fragments. The 1.4.3 HiDPI artwork fix and prior player improvements remain included. Published availability depends on the actual GitHub release, not this source declaration alone.
+Version **1.4.5** removes Home's 16-ms custom animated vertical scrolling, which continued to produce horizontal tearing in a real Windows recording despite the 1.4.4 viewport repaint adjustment. It uses Swing's native mouse-wheel scrolling while keeping automatic highlighted-title rotation, manual carousel controls and smooth horizontal shelf navigation. The original Windows display defect needs confirmation on the affected device. Published availability depends on the actual GitHub release, not this source declaration alone.
 
 ### Core experience
 

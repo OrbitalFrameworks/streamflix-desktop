@@ -88,6 +88,7 @@ Playback occurs directly inside `MainFrame`'s `contentStack` under the `PLAYER` 
 - Home's scroll viewport uses `SIMPLE_SCROLL_MODE`: never blit cached window pixels across the layered artwork while scrolling, because these can leave stale horizontal image fragments on Windows.
 - Hero slides are mounted once per Home render; changing selection must not rebuild Home or shift Continue Watching.
 - Native GUI E2E covers the fixed height, rotation, viewport mode and stable Home geometry. A user-visible Windows scroll recording is still required to close the original flicker report conclusively.
+- After a Windows report confirmed tearing persisted in v1.4.4, Home vertical scrolling stopped using the custom 16-ms easing timer. Native wheel scrolling is required on Home; the frame-by-frame timer remains only for smaller horizontal rails. E2E verifies wheel motion changes the position immediately and does not create `streamflix.smoothScrollTimer` on the vertical scrollbar. Avoid reintroducing timer-driven full-Home repaints without genuine Windows frame-level validation.
 
 Regression coverage:
 - EmbeddedPlayerIntegrationTest
