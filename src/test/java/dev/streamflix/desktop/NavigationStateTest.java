@@ -28,6 +28,7 @@ public final class NavigationStateTest {
         testStreamingSkeletonReducedMotion();
         testThemeBadgesAndStateCards();
         testHeroPanelActionsAndFavorites();
+        testFeaturedHeroCarousel();
         System.out.println("NavigationStateTest OK");
     }
 
@@ -70,6 +71,36 @@ public final class NavigationStateTest {
 
         HeroPanel hero = new HeroPanel(item1, it -> {});
         check("item-42".equals(hero.item().id()), "HeroPanel exposes target item ID");
+    }
+
+    private static void testFeaturedHeroCarousel() {
+        Models.ShowItem movie1 = new Models.ShowItem("m-1", "tmdb", "Movie 1", "", "2025",
+                100, 7.0, null, "backdrop-m1", Models.ShowType.MOVIE);
+        Models.ShowItem movie2 = new Models.ShowItem("m-2", "tmdb", "Movie 2", "", "2024",
+                100, 6.0, null, "backdrop-m2", Models.ShowType.MOVIE);
+        Models.ShowItem series1 = new Models.ShowItem("s-1", "tmdb", "Series 1", "", "2022",
+                40, 9.9, null, "backdrop-s1", Models.ShowType.TV_SHOW);
+        Models.ShowItem series2 = new Models.ShowItem("s-2", "tmdb", "Series 2", "", "2020",
+                40, 9.5, null, "backdrop-s2", Models.ShowType.TV_SHOW);
+        var choices = FeaturedHeroCarousel.select(
+                java.util.List.of(movie1, movie2, movie1), java.util.List.of(series1, series2));
+        check(choices.size() == 4, "Home featured titles must be deduplicated");
+        check(choices.get(0) == movie1 && choices.get(1) == series1
+                        && choices.get(2) == movie2 && choices.get(3) == series2,
+                "Home featured titles must mix movies and series instead of always ranking the highest-rated series");
+        check(FeaturedHeroCarousel.select(java.util.List.of(), java.util.List.of()).isEmpty(),
+                "No-catalog Home must not create an empty carousel");
+        Models.ShowItem withoutArt = new Models.ShowItem("offline", "tmdb", "Offline", "", "2024",
+                90, 7.0, null, null, Models.ShowType.MOVIE);
+        var carousel = new FeaturedHeroCarousel(java.util.List.of(withoutArt, movie2), 1,
+                it -> {}, it -> {});
+        check(carousel.currentItem() == movie2, "Carousel starts at a variable item, not a fixed series");
+        carousel.step(1);
+        check(carousel.currentItem() == withoutArt, "Carousel advances to another featured title");
+        carousel.step(-1);
+        check(carousel.currentItem() == movie2, "Carousel can go back to the previous title");
+        check(carousel.getPreferredSize().height == 500,
+                "Carousel preserves hero height across title changes without moving Continue Watching");
     }
 
     private static void testHeroCopyWordWrap() {
