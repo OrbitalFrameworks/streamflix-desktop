@@ -4,6 +4,12 @@ Streamflix Desktop is a Windows/JVM port of the Streamflix Reborn provider archi
 
 ## Download for Windows
 
+### 1-Command Install (PowerShell — Windows 10/11 x64)
+
+```powershell
+iwr "https://github.com/OrbitalFrameworks/streamflix-desktop/releases/latest/download/StreamflixDesktop-Setup.exe" -OutFile "$env:TEMP\StreamflixDesktop-Setup.exe"; Start-Process "$env:TEMP\StreamflixDesktop-Setup.exe"
+```
+
 **Recommended:** [download the Streamflix Desktop EXE installer](https://github.com/Angel52781/streamflix-desktop/releases/latest/download/StreamflixDesktop-Setup.exe). It installs per user and does not require a machine-wide deployment.
 
 Run `StreamflixDesktop-Setup.exe` and follow the Windows installer. The installer includes the Java runtime. On the first playback attempt that needs mpv, Streamflix downloads the pinned runtime from its upstream GitHub release, verifies its SHA-256, and stores it under `%LOCALAPPDATA%\\Streamflix\\runtime\\mpv`.
